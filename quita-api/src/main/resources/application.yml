@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: quita-api
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/quita_db
+    username: quita_user
+    password: quita_pass
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+    show-sql: true
+
+    properties:
+      hibernate:
+        format_sql: true
+
+server:
+  port: 8080
