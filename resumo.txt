@@ -1,29 +1,30 @@
-Resumo da Implementação - SDD-0001 (Cadastro de Usuário)
+Resumo da Implementação - Plataforma Quita
 
-Funcionalidade de cadastro de usuário implementada com sucesso no projeto Quita.
+1. SDD-0001 - Cadastro de Usuário (Register)
+   - Criada a infraestrutura do banco de dados (tabela 'users', Flyway migrations V1 e V2).
+   - Implementado o fluxo de cadastro via POST `/auth/register` com validação de dados de entrada.
+   - Criptografia de senhas com BCrypt.
+   - Tratamento global de exceções (incluindo tratamento para email duplicado com status 409).
 
-Componentes Criados e Modificados:
-1. Configurações de Segurança:
-   - Criada a classe `SecurityBeansConfig` para expor o bean `PasswordEncoder` (BCryptPasswordEncoder).
-   - Atualizada a classe `SecurityConfig` para liberar acesso público (sem autenticação) ao endpoint POST `/auth/register`.
+2. SDD-0002 - Autenticação JWT (Login)
+   - Adicionada dependência da biblioteca JJWT (Java JWT v0.12.7) no pom.xml.
+   - Criada classe `JwtService` para geração, extração e validação de tokens JWT.
+   - Implementada autenticação em modo STATELESS com Spring Security 7.
+   - Criado filtro `JwtAuthenticationFilter` interceptando as requisições privadas com Bearer Token.
+   - Exposto endpoint POST `/auth/login` gerando tokens JWT válidos após validação de credenciais.
+   - Tratamento de credenciais inválidas e usuário não encontrado com status 401 Unauthorized.
 
-2. Migração de Banco de Dados:
-   - Criada a migração do Flyway `V2__alter_users_email_length.sql` alterando o tamanho limite do campo `email` da tabela `users` para VARCHAR(255).
+3. SDD-0003 - Upload de Relatório Registrato
+   - Criada tabela `documents` via Flyway migration V3 com chave estrangeira apontando para a tabela `users`.
+   - Criados modelo JPA `Document`, enum `DocumentStatus` (UPLOADED, PROCESSING, PROCESSED, FAILED) e repository.
+   - Criada camada de armazenamento local `LocalStorageService` que salva os uploads na pasta local configurada.
+   - Implementada validação no `DocumentService` (tamanho limite de 20MB e formatos permitidos de arquivo, aceitando apenas PDFs).
+   - Exposto endpoint POST `/documents/upload` que aceita MultipartFile e associa o documento ao usuário autenticado.
+   - Exposto endpoint GET `/documents` que retorna a lista de documentos do usuário autenticado no contexto de segurança.
+   - Implementado tratamento global para exceções de tipo inválido (400 Bad Request) e arquivo muito grande (413 Payload Too Large).
 
-3. DTOs (Data Transfer Objects):
-   - Criado `RegisterRequest` contendo validações de tamanho de caracteres e e-mail bem formado.
-   - Criado `RegisterResponse` para retorno dos dados públicos do usuário (sem a senha).
-
-4. Camada de Serviço (Service):
-   - Criado `AuthService` para verificar duplicidade de e-mail (usando UserRepository), criptografar senha com BCrypt, definir timestamps e persistir o usuário.
-
-5. Camada de Controle (Controller):
-   - Criado `AuthController` expondo o endpoint POST `/auth/register` com validação dos dados de entrada.
-
-6. Tratamento de Exceções (Exceptions):
-   - Criada a exceção customizada `EmailAlreadyExistsException`.
-   - Criado o `GlobalExceptionHandler` interceptando erros de validação (400 Bad Request) e conflito de duplicidade de e-mail (409 Conflict) retornando o JSON esperado.
-
-7. Testes e Verificação:
-   - Criada a classe `AuthControllerTest` de teste de integração cobrindo cenários de sucesso, erro de validação e duplicidade de e-mail. Todos os testes passaram com sucesso no build Maven.
-   - Verificação manual executada e validada com o servidor em execução.
+4. Testes e Validação
+   - Atualizada a suíte de testes de integração (`AuthControllerTest`, `JwtServiceTest` e `DocumentControllerTest`).
+   - Implementados testes específicos para cobrir upload de PDF com sucesso, recusa de extensões não permitidas, bloqueio de arquivos muito grandes (> 20MB), multi-tenant isolation (garantindo que um usuário não liste documentos de outros) e bloqueio de requisições sem autenticação.
+   - Limpeza de banco de dados ajustada nas suítes de testes usando `deleteAllInBatch()` para evitar conflitos de dados persistidos.
+   - Todos os 17 testes automatizados da API estão passando com sucesso no build Maven.
