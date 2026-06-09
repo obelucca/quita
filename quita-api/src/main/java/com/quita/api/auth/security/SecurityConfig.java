@@ -17,6 +17,7 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/health").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/auth/register").permitAll()
                         .anyRequest().authenticated()
                 );
 
