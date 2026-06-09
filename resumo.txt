@@ -1,0 +1,29 @@
+Resumo da Implementação - SDD-0001 (Cadastro de Usuário)
+
+Funcionalidade de cadastro de usuário implementada com sucesso no projeto Quita.
+
+Componentes Criados e Modificados:
+1. Configurações de Segurança:
+   - Criada a classe `SecurityBeansConfig` para expor o bean `PasswordEncoder` (BCryptPasswordEncoder).
+   - Atualizada a classe `SecurityConfig` para liberar acesso público (sem autenticação) ao endpoint POST `/auth/register`.
+
+2. Migração de Banco de Dados:
+   - Criada a migração do Flyway `V2__alter_users_email_length.sql` alterando o tamanho limite do campo `email` da tabela `users` para VARCHAR(255).
+
+3. DTOs (Data Transfer Objects):
+   - Criado `RegisterRequest` contendo validações de tamanho de caracteres e e-mail bem formado.
+   - Criado `RegisterResponse` para retorno dos dados públicos do usuário (sem a senha).
+
+4. Camada de Serviço (Service):
+   - Criado `AuthService` para verificar duplicidade de e-mail (usando UserRepository), criptografar senha com BCrypt, definir timestamps e persistir o usuário.
+
+5. Camada de Controle (Controller):
+   - Criado `AuthController` expondo o endpoint POST `/auth/register` com validação dos dados de entrada.
+
+6. Tratamento de Exceções (Exceptions):
+   - Criada a exceção customizada `EmailAlreadyExistsException`.
+   - Criado o `GlobalExceptionHandler` interceptando erros de validação (400 Bad Request) e conflito de duplicidade de e-mail (409 Conflict) retornando o JSON esperado.
+
+7. Testes e Verificação:
+   - Criada a classe `AuthControllerTest` de teste de integração cobrindo cenários de sucesso, erro de validação e duplicidade de e-mail. Todos os testes passaram com sucesso no build Maven.
+   - Verificação manual executada e validada com o servidor em execução.
