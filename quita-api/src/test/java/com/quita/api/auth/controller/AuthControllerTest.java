@@ -1,6 +1,7 @@
 package com.quita.api.auth.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.quita.api.auth.dto.LoginRequest;
 import com.quita.api.auth.dto.RegisterRequest;
 import com.quita.api.user.model.User;
 import com.quita.api.user.repository.UserRepository;
@@ -39,7 +40,7 @@ class AuthControllerTest {
 
     @BeforeEach
     void setUp() {
-        userRepository.deleteAll();
+        userRepository.deleteAllInBatch();
     }
 
     @Test
@@ -141,5 +142,66 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.message", is("Validation error")))
                 .andExpect(jsonPath("$.errors[0].field", is("password")))
                 .andExpect(jsonPath("$.errors[0].message", containsString("6 and 100")));
+    }
+
+    @Test
+    void shouldLoginSuccessfully() throws Exception {
+        User user = User.builder()
+                .name("Cleber Lucas")
+                .email("cleber@email.com")
+                .password(passwordEncoder.encode("123456"))
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+        userRepository.save(user);
+
+        LoginRequest loginRequest = LoginRequest.builder()
+                .email("cleber@email.com")
+                .password("123456")
+                .build();
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token", notNullValue()))
+                .andExpect(jsonPath("$.type", is("Bearer")));
+    }
+
+    @Test
+    void shouldReturnUnauthorizedOnInvalidPassword() throws Exception {
+        User user = User.builder()
+                .name("Cleber Lucas")
+                .email("cleber@email.com")
+                .password(passwordEncoder.encode("123456"))
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+        userRepository.save(user);
+
+        LoginRequest loginRequest = LoginRequest.builder()
+                .email("cleber@email.com")
+                .password("wrongpassword")
+                .build();
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message", is("Invalid credentials")));
+    }
+
+    @Test
+    void shouldReturnUnauthorizedOnNonExistentUser() throws Exception {
+        LoginRequest loginRequest = LoginRequest.builder()
+                .email("nonexistent@email.com")
+                .password("123456")
+                .build();
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message", is("Invalid credentials")));
     }
 }
