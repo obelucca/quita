@@ -39,3 +39,12 @@ logging:
 quita:
   insights:
     high-debt-threshold: 10000.00
+  llm:
+    provider: GEMINI
+    mock: true
+    gemini:
+      api-key: ${GEMINI_API_KEY:}
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+    ollama:
+      url: ${OLLAMA_URL:http://localhost:11434/api/generate}

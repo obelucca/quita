@@ -36,10 +36,14 @@ class AuthControllerTest {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private com.quita.api.complaint.repository.ComplaintRepository complaintRepository;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @BeforeEach
     void setUp() {
+        complaintRepository.deleteAllInBatch();
         userRepository.deleteAllInBatch();
     }
 

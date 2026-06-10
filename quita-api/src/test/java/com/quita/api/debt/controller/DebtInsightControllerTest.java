@@ -46,6 +46,9 @@ class DebtInsightControllerTest {
     private DebtRepository debtRepository;
 
     @Autowired
+    private com.quita.api.complaint.repository.ComplaintRepository complaintRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @Autowired
@@ -58,6 +61,7 @@ class DebtInsightControllerTest {
 
     @BeforeEach
     void setUp() {
+        complaintRepository.deleteAllInBatch();
         debtRepository.deleteAllInBatch();
         documentRepository.deleteAllInBatch();
         userRepository.deleteAllInBatch();
@@ -137,6 +141,7 @@ class DebtInsightControllerTest {
 
     @AfterEach
     void tearDown() {
+        complaintRepository.deleteAllInBatch();
         debtRepository.deleteAllInBatch();
         documentRepository.deleteAllInBatch();
         userRepository.deleteAllInBatch();

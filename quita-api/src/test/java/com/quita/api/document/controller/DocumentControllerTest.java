@@ -46,6 +46,9 @@ class DocumentControllerTest {
     private DocumentRepository documentRepository;
 
     @Autowired
+    private com.quita.api.complaint.repository.ComplaintRepository complaintRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @Autowired
@@ -59,6 +62,7 @@ class DocumentControllerTest {
 
     @BeforeEach
     void setUp() throws IOException {
+        complaintRepository.deleteAllInBatch();
         documentRepository.deleteAllInBatch();
         userRepository.deleteAllInBatch();
 
@@ -89,6 +93,7 @@ class DocumentControllerTest {
 
     @AfterEach
     void tearDown() throws IOException {
+        complaintRepository.deleteAllInBatch();
         documentRepository.deleteAllInBatch();
         userRepository.deleteAllInBatch();
 

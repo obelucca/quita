@@ -50,6 +50,9 @@ class RegistratoParserToolTest {
     private UserRepository userRepository;
 
     @Autowired
+    private com.quita.api.complaint.repository.ComplaintRepository complaintRepository;
+
+    @Autowired
     private StorageProperties storageProperties;
 
     private User testUser;
@@ -58,6 +61,7 @@ class RegistratoParserToolTest {
 
     @BeforeEach
     void setUp() throws IOException {
+        complaintRepository.deleteAllInBatch();
         debtRepository.deleteAllInBatch();
         documentRepository.deleteAllInBatch();
         userRepository.deleteAllInBatch();
