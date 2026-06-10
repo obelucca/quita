@@ -1,5 +1,6 @@
 package com.quita.api.document.model;
 
+import com.quita.api.user.model.User;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
@@ -19,6 +20,10 @@ public class Document {
 
     @Column(name = "user_id", nullable = false)
     private UUID userId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", insertable = false, updatable = false)
+    private User user;
 
     @Column(name = "original_filename", nullable = false)
     private String originalFilename;

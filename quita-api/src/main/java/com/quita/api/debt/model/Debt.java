@@ -1,5 +1,6 @@
 package com.quita.api.debt.model;
 
+import com.quita.api.document.model.Document;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
@@ -20,6 +21,10 @@ public class Debt {
 
     @Column(name = "document_id", nullable = false)
     private UUID documentId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "document_id", insertable = false, updatable = false)
+    private Document document;
 
     @Column(length = 255)
     private String institution;

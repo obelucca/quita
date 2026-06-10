@@ -35,3 +35,7 @@ logging:
   level:
     org.springframework.security: DEBUG
     org.springframework.web: DEBUG
+
+quita:
+  insights:
+    high-debt-threshold: 10000.00
