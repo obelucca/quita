@@ -47,6 +47,12 @@ class ComplaintControllerTest {
     @Autowired
     private JwtService jwtService;
 
+    @Autowired
+    private com.quita.api.document.repository.DocumentRepository documentRepository;
+
+    @Autowired
+    private com.quita.api.debt.repository.DebtRepository debtRepository;
+
     private User userA;
     private User userB;
     private String tokenA;
@@ -55,7 +61,9 @@ class ComplaintControllerTest {
 
     @BeforeEach
     void setUp() {
+        debtRepository.deleteAllInBatch();
         complaintRepository.deleteAllInBatch();
+        documentRepository.deleteAllInBatch();
         userRepository.deleteAllInBatch();
 
         // Create User A
@@ -98,7 +106,9 @@ class ComplaintControllerTest {
 
     @AfterEach
     void tearDown() {
+        debtRepository.deleteAllInBatch();
         complaintRepository.deleteAllInBatch();
+        documentRepository.deleteAllInBatch();
         userRepository.deleteAllInBatch();
     }
 

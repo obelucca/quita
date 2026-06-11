@@ -106,7 +106,53 @@ public class DebtExtractionService {
             debts.add(buildDebt(documentId, currentInstitution, currentOperation, currentValue, currentTextAccumulator.toString()));
         }
 
-        // Fallback: If no structured debts were extracted, but there is text, try to extract one single block/fallbacks
+        // Fallback: If no structured debts were extracted, try the real Registrato PDF pattern
+        if (debts.isEmpty()) {
+            java.util.regex.Pattern linePattern = java.util.regex.Pattern.compile("^([A-Z0-9][A-Z0-9\\s\\.\\-\\&/]{2,})\\s+(.*)");
+            java.util.regex.Pattern valPattern = java.util.regex.Pattern.compile("R\\$\\s*([\\d\\.,]+)");
+            java.util.Set<String> seenInstitutions = new java.util.HashSet<>();
+
+            for (String line : lines) {
+                String trimmedLine = line.trim();
+                java.util.regex.Matcher m = linePattern.matcher(trimmedLine);
+                if (m.find()) {
+                    String name = m.group(1).trim();
+                    String rest = m.group(2);
+
+                    // Exclude common header/summary words
+                    String upperName = name.toUpperCase();
+                    if (upperName.equals("TOTAL") || upperName.equals("SUBTOTAL") || 
+                        upperName.startsWith("MÊS") || upperName.startsWith("MES") ||
+                        upperName.equals("EM DIA") || upperName.equals("VENCIDA") ||
+                        upperName.equals("INSTITUIÇÃO") || upperName.equals("INSTITUICAO")) {
+                        continue;
+                    }
+
+                    if (seenInstitutions.contains(upperName)) {
+                        continue;
+                    }
+
+                    // Sum all R$ values on this line
+                    java.util.regex.Matcher valMatcher = valPattern.matcher(rest);
+                    BigDecimal sum = BigDecimal.ZERO;
+                    boolean foundVal = false;
+                    while (valMatcher.find()) {
+                        BigDecimal val = parseValue(valMatcher.group(1));
+                        if (val != null) {
+                            sum = sum.add(val);
+                            foundVal = true;
+                        }
+                    }
+
+                    if (foundVal) {
+                        seenInstitutions.add(upperName);
+                        debts.add(buildDebt(documentId, name, "Empréstimos e Financiamentos (SCR)", sum, trimmedLine));
+                    }
+                }
+            }
+        }
+
+        // Second Fallback: If still empty, try to extract one single block/fallbacks
         if (debts.isEmpty()) {
             // Let's search if there's any mention of institution/operation/value in the text globally
             String institution = null;

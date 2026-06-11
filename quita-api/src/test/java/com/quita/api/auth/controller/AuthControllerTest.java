@@ -39,11 +39,19 @@ class AuthControllerTest {
     @Autowired
     private com.quita.api.complaint.repository.ComplaintRepository complaintRepository;
 
+    @Autowired
+    private com.quita.api.document.repository.DocumentRepository documentRepository;
+
+    @Autowired
+    private com.quita.api.debt.repository.DebtRepository debtRepository;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @BeforeEach
     void setUp() {
+        debtRepository.deleteAllInBatch();
         complaintRepository.deleteAllInBatch();
+        documentRepository.deleteAllInBatch();
         userRepository.deleteAllInBatch();
     }
 

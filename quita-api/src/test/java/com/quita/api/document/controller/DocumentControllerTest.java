@@ -26,6 +26,9 @@ import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.UUID;
 
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import com.quita.api.debt.service.DebtExtractionService;
+
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -49,6 +52,12 @@ class DocumentControllerTest {
     private com.quita.api.complaint.repository.ComplaintRepository complaintRepository;
 
     @Autowired
+    private com.quita.api.debt.repository.DebtRepository debtRepository;
+
+    @MockitoBean
+    private DebtExtractionService debtExtractionService;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @Autowired
@@ -62,6 +71,7 @@ class DocumentControllerTest {
 
     @BeforeEach
     void setUp() throws IOException {
+        debtRepository.deleteAllInBatch();
         complaintRepository.deleteAllInBatch();
         documentRepository.deleteAllInBatch();
         userRepository.deleteAllInBatch();
@@ -93,6 +103,7 @@ class DocumentControllerTest {
 
     @AfterEach
     void tearDown() throws IOException {
+        debtRepository.deleteAllInBatch();
         complaintRepository.deleteAllInBatch();
         documentRepository.deleteAllInBatch();
         userRepository.deleteAllInBatch();
@@ -126,7 +137,7 @@ class DocumentControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id", notNullValue()))
                 .andExpect(jsonPath("$.originalFilename", is("registrato.pdf")))
-                .andExpect(jsonPath("$.status", is("UPLOADED")));
+                .andExpect(jsonPath("$.status", is("PROCESSED")));
     }
 
     @Test
@@ -184,7 +195,7 @@ class DocumentControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)))
                 .andExpect(jsonPath("$[0].originalFilename", is("registrato.pdf")))
-                .andExpect(jsonPath("$[0].status", is("UPLOADED")))
+                .andExpect(jsonPath("$[0].status", is("PROCESSED")))
                 .andExpect(jsonPath("$[0].uploadDate", notNullValue()));
     }
 

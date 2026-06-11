@@ -6,6 +6,7 @@ import com.quita.api.document.model.DocumentStatus;
 import com.quita.api.document.repository.DocumentRepository;
 import com.quita.api.exception.FileTooLargeException;
 import com.quita.api.exception.InvalidFileTypeException;
+import com.quita.api.debt.service.DebtExtractionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +24,7 @@ public class DocumentService {
 
     private final DocumentRepository documentRepository;
     private final StorageService storageService;
+    private final DebtExtractionService debtExtractionService;
 
     private static final long MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
 
@@ -68,6 +70,20 @@ public class DocumentService {
                 .build();
 
         documentRepository.save(document);
+
+        // Parse document synchronously
+        try {
+            document.setStatus(DocumentStatus.PROCESSING);
+            documentRepository.saveAndFlush(document);
+
+            debtExtractionService.extractAndSaveDebts(document);
+
+            document.setStatus(DocumentStatus.PROCESSED);
+            documentRepository.saveAndFlush(document);
+        } catch (Exception e) {
+            document.setStatus(DocumentStatus.FAILED);
+            documentRepository.saveAndFlush(document);
+        }
 
         return DocumentResponse.builder()
                 .id(document.getId().toString())
