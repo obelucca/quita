@@ -23,11 +23,22 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { RecoveryMap } from "@/components/ui/recovery-map";
+import { CustomToastContainer, ToastMessage } from "@/components/ui/custom-toast";
 
 export default function DashboardPage() {
   const { user, isAuthenticated, loading: authLoading, logout } = useAuth();
   const router = useRouter();
   const [pdfDownloads, setPdfDownloads] = useState(0);
+
+  // Toast state
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const addToast = (message: string, type: "success" | "error" | "info" = "info") => {
+    const id = Math.random().toString(36).substring(2, 9);
+    setToasts((prev) => [...prev, { id, message, type }]);
+  };
+  const removeToast = (id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -61,8 +72,9 @@ export default function DashboardPage() {
       const updated = pdfDownloads + 1;
       setPdfDownloads(updated);
       localStorage.setItem("quota_pdf_downloads", updated.toString());
+      addToast("Download concluído com sucesso!", "success");
     } catch (err) {
-      alert("Erro ao baixar PDF da reclamação.");
+      addToast("Erro ao baixar PDF da reclamação.", "error");
     }
   };
 
@@ -140,9 +152,9 @@ export default function DashboardPage() {
               </h3>
               <p className="text-xs text-slate-500 font-semibold">Acompanhe seu avanço rumo à resolução das dívidas.</p>
             </div>
-            <div className="flex-grow flex items-center justify-center">
-              <div className="w-full max-h-[140px] opacity-90">
-                <RecoveryMap state={complaintsCount > 0 ? 5 : 2} showYouAreHere={true} />
+             <div className="flex-grow flex items-center justify-center overflow-hidden">
+              <div className="w-full max-w-[320px] opacity-90">
+                <RecoveryMap state={complaintsCount > 0 ? 5 : 2} showYouAreHere={true} noCardStyle={true} />
               </div>
             </div>
           </div>
@@ -280,10 +292,17 @@ export default function DashboardPage() {
 
       {/* Footer */}
       <footer className="border-t border-slate-200 bg-brand-offwhite-50 py-8 text-center text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto px-4">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p>© {new Date().getFullYear()} Quita. Todos os direitos reservados.</p>
+          <div className="flex items-center gap-3 text-slate-400 font-semibold">
+            <Link href="/terms" className="hover:text-brand-emerald-650 transition-colors">Termos de Uso</Link>
+            <span>•</span>
+            <Link href="/privacy" className="hover:text-brand-emerald-650 transition-colors">Política de Privacidade</Link>
+          </div>
         </div>
       </footer>
+
+      <CustomToastContainer toasts={toasts} onClose={removeToast} />
     </div>
   );
 }

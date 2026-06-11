@@ -43,4 +43,13 @@ public class DocumentController {
         List<DocumentResponse> response = documentService.listDocuments(user.getId());
         return ResponseEntity.ok(response);
     }
+
+    @DeleteMapping("/clear")
+    public ResponseEntity<Void> clear(Principal principal) {
+        User user = userRepository.findByEmail(principal.getName())
+                .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + principal.getName()));
+
+        documentService.clearUserDocuments(user.getId());
+        return ResponseEntity.noContent().build();
+    }
 }

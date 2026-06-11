@@ -8,4 +8,5 @@ export const documentService = {
     return api.post<DocumentResponse>("/documents/upload", formData);
   },
   list: () => api.get<DocumentResponse[]>("/documents"),
+  clear: () => api.delete<void>("/documents/clear"),
 };

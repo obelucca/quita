@@ -81,18 +81,6 @@ export const RecoveryProgress: React.FC<RecoveryProgressProps> = ({
 
       {/* SVG Timeline */}
       <div className="relative px-2 py-4">
-        {/* You Are Here Positioned Marker */}
-        <div
-          className="absolute transition-all duration-500 ease-out z-30"
-          style={{
-            left: `${((currentStep - 1) / (totalSteps - 1)) * 100}%`,
-            transform: "translateX(-50%)",
-            top: "-18px",
-          }}
-        >
-          <YouAreHereMarker label={getStepDescription(currentStep)} />
-        </div>
-
         <div className="relative w-full h-2 bg-slate-200 rounded-full">
           {/* Active progress track */}
           <motion.div
@@ -144,6 +132,22 @@ export const RecoveryProgress: React.FC<RecoveryProgressProps> = ({
               );
             })}
           </div>
+        </div>
+      </div>
+
+      {/* Active Step Indicator Text below timeline */}
+      <div className="mt-6 pt-4 border-t border-slate-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm">
+        <div className="flex flex-col">
+          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Passo Atual</span>
+          <span className="font-bold text-slate-800 text-base mt-0.5">
+            {getStepDescription(currentStep)}
+          </span>
+        </div>
+        <div className="sm:text-right">
+          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Fase</span>
+          <span className="block font-semibold text-brand-emerald-600 mt-0.5">
+            {getStepCategory(currentStep)}
+          </span>
         </div>
       </div>
     </div>

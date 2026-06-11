@@ -12,15 +12,16 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
       <div
         ref={ref}
         className={`
-          bg-brand-offwhite-50 
+          bg-white 
           border 
           rounded-2xl 
           p-6 sm:p-8 
           shadow-sm 
           transition-all 
-          duration-250 
-          ${highlighted ? "border-brand-emerald-500 bg-brand-emerald-50/10 shadow-md shadow-brand-emerald-500/5" : "border-slate-200"}
-          ${hoverable ? "hover:border-brand-emerald-500/30 hover:shadow-md hover:shadow-slate-100" : ""}
+          duration-300 
+          ease-out
+          ${highlighted ? "border-brand-emerald-500 bg-brand-emerald-50/5 shadow-md shadow-brand-emerald-600/5" : "border-slate-250"}
+          ${hoverable ? "hover:scale-[1.01] hover:border-brand-emerald-500/20 hover:shadow-lg hover:shadow-brand-emerald-600/5 cursor-pointer" : ""}
           ${className}
         `}
         {...props}

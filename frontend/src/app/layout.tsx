@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import Providers from "./providers";
 
-const inter = Inter({
+const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
   variable: "--font-sans",
 });
@@ -21,9 +21,9 @@ export default function RootLayout({
   return (
     <html
       lang="pt-BR"
-      className={`${inter.variable} h-full antialiased`}
+      className={`${spaceGrotesk.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-slate-950 text-slate-100 font-sans flex flex-col">
+      <body className="min-h-full bg-[#021d17] text-white font-sans flex flex-col">
         <Providers>{children}</Providers>
       </body>
     </html>

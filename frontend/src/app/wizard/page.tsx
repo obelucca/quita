@@ -40,6 +40,9 @@ import { RecoveryProgress } from "@/components/ui/recovery-progress";
 import { ClarityCard } from "@/components/ui/clarity-card";
 import { RecoveryInsight } from "@/components/ui/recovery-insight";
 import { CompletionMoment } from "@/components/ui/completion-moment";
+import { CustomToastContainer, ToastMessage } from "@/components/ui/custom-toast";
+import { CustomModal } from "@/components/ui/custom-modal";
+import { ConsentCheckbox } from "@/components/legal/ConsentCheckbox";
 
 const INITIAL_STATE: WizardState = {
   step: 1,
@@ -73,6 +76,19 @@ export default function WizardPage() {
   const [complaintText, setComplaintText] = useState("");
   const [copiedText, setCopiedText] = useState(false);
 
+  // Toast state
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const addToast = (message: string, type: "success" | "error" | "info" = "info") => {
+    const id = Math.random().toString(36).substring(2, 9);
+    setToasts((prev) => [...prev, { id, message, type }]);
+  };
+  const removeToast = (id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  // Reset modal state
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+
   // Auth Guard
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -84,7 +100,27 @@ export default function WizardPage() {
   useEffect(() => {
     if (user) {
       const savedState = wizardStorage.load(user.id);
+      
+      // Check for LGPD consent
+      const savedConsent = localStorage.getItem(`quita_consent_${user.id}`);
+      let hasConsent = false;
+      if (savedConsent) {
+        try {
+          const consentObj = JSON.parse(savedConsent);
+          if (consentObj && consentObj.accepted) {
+            setDataConsent(true);
+            hasConsent = true;
+          }
+        } catch (e) {
+          console.error("Error parsing consent storage:", e);
+        }
+      }
+
       if (savedState) {
+        // If state saved is beyond step 2 but they don't have consent, force them to step 2
+        if (savedState.step > 2 && !hasConsent) {
+          savedState.step = 2;
+        }
         setState(savedState);
         if (savedState.generatedComplaint) {
           setComplaintText(savedState.generatedComplaint.complaint);
@@ -106,16 +142,26 @@ export default function WizardPage() {
 
   // Reset wizard progress helper
   const resetWizard = () => {
-    if (confirm("Tem certeza que deseja reiniciar todo o fluxo? Isso limpará os dados do assistente local.")) {
-      if (user) {
-        wizardStorage.clear(user.id);
-      }
-      setState(INITIAL_STATE);
-      setDataConsent(false);
-      setSelectedFile(null);
-      setUploadProgress(0);
-      setUploadError(null);
+    setIsResetModalOpen(true);
+  };
+
+  const executeResetWizard = async () => {
+    try {
+      await documentService.clear();
+      queryClient.invalidateQueries({ queryKey: ["debtInsights"] });
+      addToast("Fluxo reiniciado com sucesso.", "success");
+    } catch (e) {
+      console.error("Erro ao limpar dados do servidor:", e);
+      addToast("Erro ao limpar dados do servidor.", "error");
     }
+    if (user) {
+      wizardStorage.clear(user.id);
+    }
+    setState(INITIAL_STATE);
+    setDataConsent(false);
+    setSelectedFile(null);
+    setUploadProgress(0);
+    setUploadError(null);
   };
 
   // Fetch insights
@@ -169,7 +215,7 @@ export default function WizardPage() {
       queryClient.invalidateQueries({ queryKey: ["complaints"] });
     },
     onError: () => {
-      alert("Erro ao estruturar reclamação com a IA. Tente novamente.");
+      addToast("Erro ao estruturar reclamação com a IA. Tente novamente.", "error");
       updateState({ step: 8 });
     },
   });
@@ -185,7 +231,7 @@ export default function WizardPage() {
       setComplaintText(data.complaint);
     },
     onError: () => {
-      alert("Erro ao regenerar texto. Tente novamente.");
+      addToast("Erro ao regenerar texto. Tente novamente.", "error");
     },
   });
 
@@ -228,7 +274,7 @@ export default function WizardPage() {
     const cleanVal = newInstValue.replace(".", "").replace(",", ".");
     const valNum = parseFloat(cleanVal);
     if (isNaN(valNum) || valNum <= 0) {
-      alert("Insira um valor numérico válido.");
+      addToast("Insira um valor numérico válido.", "error");
       return;
     }
 
@@ -262,7 +308,7 @@ export default function WizardPage() {
     const cleanVal = editInstValue.replace(".", "").replace(",", ".");
     const valNum = parseFloat(cleanVal);
     if (isNaN(valNum) || valNum <= 0) {
-      alert("Insira um valor numérico válido.");
+      addToast("Insira um valor numérico válido.", "error");
       return;
     }
 
@@ -312,6 +358,7 @@ export default function WizardPage() {
   const handleCopyToClipboard = () => {
     navigator.clipboard.writeText(complaintText);
     setCopiedText(true);
+    addToast("Copiado para a área de transferência!", "success");
     setTimeout(() => setCopiedText(false), 2000);
   };
 
@@ -324,8 +371,9 @@ export default function WizardPage() {
       );
       const currentDownloads = parseInt(localStorage.getItem("quota_pdf_downloads") || "0");
       localStorage.setItem("quota_pdf_downloads", (currentDownloads + 1).toString());
+      addToast("Download concluído com sucesso!", "success");
     } catch (err) {
-      alert("Erro ao baixar PDF da reclamação.");
+      addToast("Erro ao baixar PDF da reclamação.", "error");
     }
   };
 
@@ -469,28 +517,32 @@ export default function WizardPage() {
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3 mt-6 bg-brand-emerald-50/50 border border-brand-emerald-500/10 p-4 rounded-xl">
-                  <input
-                    type="checkbox"
-                    id="consent"
-                    checked={dataConsent}
-                    onChange={(e) => setDataConsent(e.target.checked)}
-                    className="w-5 h-5 rounded border-slate-300 text-brand-emerald-600 bg-white focus:ring-brand-emerald-500 mt-0.5 cursor-pointer"
-                  />
-                  <label htmlFor="consent" className="text-xs text-slate-655 cursor-pointer leading-normal">
-                    Eu compreendo que o Quita utilizará os dados extraídos do meu relatório do Registrato unicamente para gerar as minhas reclamações e insights. Declaro que li e concordo com estes termos.
-                  </label>
-                </div>
+                <ConsentCheckbox checked={dataConsent} onChange={setDataConsent} />
               </div>
 
               <div className="flex justify-between items-center pt-4">
                 <button
                   onClick={() => updateState({ step: 1 })}
-                  className="text-slate-550 hover:text-brand-petroleo font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                  className="text-slate-555 hover:text-brand-petroleo font-semibold flex items-center gap-1 cursor-pointer transition-colors"
                 >
                   <ChevronLeft className="w-5 h-5" /> Voltar
                 </button>
-                <Button variant="primary" onClick={() => updateState({ step: 3 })} disabled={!dataConsent}>
+                <Button
+                  variant="primary"
+                  onClick={() => {
+                    if (dataConsent && user) {
+                      localStorage.setItem(
+                        `quita_consent_${user.id}`,
+                        JSON.stringify({
+                          accepted: true,
+                          acceptedAt: new Date().toISOString(),
+                        })
+                      );
+                    }
+                    updateState({ step: 3 });
+                  }}
+                  disabled={!dataConsent}
+                >
                   Prosseguir <ChevronRight className="w-5 h-5 ml-1" />
                 </Button>
               </div>
@@ -1168,6 +1220,31 @@ export default function WizardPage() {
 
         </Card>
       </main>
+
+      {/* Footer */}
+      <footer className="border-t border-slate-200 bg-brand-offwhite-50/50 py-6 text-center text-xs text-slate-500 mt-auto">
+        <div className="max-w-4xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <p>© {new Date().getFullYear()} Quita. Todos os direitos reservados.</p>
+          <div className="flex items-center gap-3 text-slate-400 font-semibold">
+            <Link href="/terms" className="hover:text-brand-emerald-655 transition-colors">Termos de Uso</Link>
+            <span>•</span>
+            <Link href="/privacy" className="hover:text-brand-emerald-655 transition-colors">Política de Privacidade</Link>
+          </div>
+        </div>
+      </footer>
+
+      <CustomModal
+        isOpen={isResetModalOpen}
+        onClose={() => setIsResetModalOpen(false)}
+        onConfirm={executeResetWizard}
+        title="Reiniciar Fluxo"
+        description="Tem certeza que deseja reiniciar todo o fluxo? Isso limpará os dados do assistente local e removerá os relatórios enviados."
+        confirmText="Sim, reiniciar"
+        cancelText="Cancelar"
+        isDanger={true}
+      />
+
+      <CustomToastContainer toasts={toasts} onClose={removeToast} />
     </div>
   );
 }

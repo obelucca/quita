@@ -36,12 +36,46 @@ body {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #f8fafc;
+  background: #021d17;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #047857;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #059669;
 }
+
+/* Premium Visual Identity Utilities */
+.bg-grid-pattern {
+  background-image: radial-gradient(rgba(16, 185, 129, 0.05) 1.5px, transparent 0);
+  background-size: 24px 24px;
+}
+
+.glow-emerald {
+  box-shadow: 0 0 40px -5px rgba(16, 185, 129, 0.15);
+}
+
+.glow-emerald-strong {
+  box-shadow: 0 0 50px 0px rgba(16, 185, 129, 0.25);
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, #ffffff 40%, #10b981 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.border-hairline {
+  border: 1px solid rgba(16, 185, 129, 0.12);
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+

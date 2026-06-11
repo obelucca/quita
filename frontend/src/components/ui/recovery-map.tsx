@@ -8,12 +8,14 @@ interface RecoveryMapProps {
   className?: string;
   state?: RecoveryMapState;
   showYouAreHere?: boolean;
+  noCardStyle?: boolean;
 }
 
 export const RecoveryMap: React.FC<RecoveryMapProps> = ({
   className = "",
   state = 5,
   showYouAreHere = true,
+  noCardStyle = false,
 }) => {
   // Grid size
   const cols = 15;
@@ -103,12 +105,20 @@ export const RecoveryMap: React.FC<RecoveryMapProps> = ({
   const youAreHerePoint = activeLimitIdx >= 0 ? pathPoints[activeLimitIdx] : null;
 
   return (
-    <div className={`relative bg-brand-offwhite-50 border border-slate-250 rounded-3xl p-6 sm:p-8 overflow-hidden shadow-inner flex items-center justify-center min-h-[280px] sm:min-h-[360px] ${className}`}>
+    <div
+      className={
+        noCardStyle
+          ? `relative w-full flex items-center justify-center ${className}`
+          : `relative bg-brand-offwhite-50 border border-slate-250 rounded-3xl p-6 sm:p-8 overflow-hidden shadow-inner flex items-center justify-center min-h-[280px] sm:min-h-[360px] ${className}`
+      }
+    >
       {/* Decorative gradient overlay */}
-      <div className="absolute inset-0 bg-radial-gradient from-transparent via-brand-offwhite-50/50 to-brand-offwhite-50 pointer-events-none z-10" />
+      {!noCardStyle && (
+        <div className="absolute inset-0 bg-radial-gradient from-transparent via-brand-offwhite-50/50 to-brand-offwhite-50 pointer-events-none z-10" />
+      )}
 
       {/* Concept Background Mist for State 1 (Névoa) */}
-      {numState === 1 && (
+      {numState === 1 && !noCardStyle && (
         <motion.div
           animate={{ opacity: [0.15, 0.3, 0.15] }}
           transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
@@ -116,7 +126,7 @@ export const RecoveryMap: React.FC<RecoveryMapProps> = ({
         />
       )}
 
-      <div className="relative w-full h-full max-w-[520px] aspect-[1.5/1]">
+      <div className={noCardStyle ? "relative w-full aspect-[1.5/1]" : "relative w-full h-full max-w-[520px] aspect-[1.5/1]"}>
         {/* Glow behind the path (Active) */}
         {activeLimitIdx >= 0 && (
           <div className="absolute inset-0 pointer-events-none z-0">
