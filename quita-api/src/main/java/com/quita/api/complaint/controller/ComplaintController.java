@@ -70,10 +70,24 @@ public class ComplaintController {
     @GetMapping("/{id}/pdf")
     public ResponseEntity<byte[]> getPdf(
             @PathVariable UUID id,
+            @RequestParam(defaultValue = "false") boolean showCover,
+            @RequestParam(defaultValue = "true") boolean showWatermark,
+            @RequestParam(defaultValue = "true") boolean showFooter,
+            @RequestParam(defaultValue = "true") boolean showDocId,
+            @RequestParam(defaultValue = "true") boolean showEditorialSeal,
+            @RequestParam(defaultValue = "true") boolean showHighlights,
             @AuthenticationPrincipal UserPrincipal principal) {
         Complaint complaint = complaintHistoryService.getById(id, principal.getId());
         try {
-            byte[] pdfBytes = complaintGenerationService.generateComplaintPdf(complaint);
+            com.quita.api.complaint.pdf.QuitaPdfOptions options = com.quita.api.complaint.pdf.QuitaPdfOptions.builder()
+                    .showCover(showCover)
+                    .showWatermark(showWatermark)
+                    .showFooter(showFooter)
+                    .showDocId(showDocId)
+                    .showEditorialSeal(showEditorialSeal)
+                    .showHighlights(showHighlights)
+                    .build();
+            byte[] pdfBytes = complaintGenerationService.generateComplaintPdf(complaint, options);
             String filename = "reclamacao_" + complaint.getInstitution().replaceAll("\\s+", "_") + "_v" + complaint.getVersion() + ".pdf";
             return ResponseEntity.ok()
                     .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_PDF_VALUE)

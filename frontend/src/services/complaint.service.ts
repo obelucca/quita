@@ -15,8 +15,29 @@ export const complaintService = {
       currentDebtValue,
     });
   },
-  downloadPdf: async (id: string, filename: string) => {
-    const blob = await api.get<Blob>(`/complaints/${id}/pdf`, {
+  downloadPdf: async (id: string, filename: string, options?: {
+    showCover?: boolean;
+    showWatermark?: boolean;
+    showFooter?: boolean;
+    showDocId?: boolean;
+    showEditorialSeal?: boolean;
+    showHighlights?: boolean;
+  }) => {
+    let urlPath = `/complaints/${id}/pdf`;
+    if (options) {
+      const params = new URLSearchParams();
+      if (options.showCover !== undefined) params.append("showCover", String(options.showCover));
+      if (options.showWatermark !== undefined) params.append("showWatermark", String(options.showWatermark));
+      if (options.showFooter !== undefined) params.append("showFooter", String(options.showFooter));
+      if (options.showDocId !== undefined) params.append("showDocId", String(options.showDocId));
+      if (options.showEditorialSeal !== undefined) params.append("showEditorialSeal", String(options.showEditorialSeal));
+      if (options.showHighlights !== undefined) params.append("showHighlights", String(options.showHighlights));
+      const queryString = params.toString();
+      if (queryString) {
+        urlPath += `?${queryString}`;
+      }
+    }
+    const blob = await api.get<Blob>(urlPath, {
       headers: {
         Accept: "application/pdf",
       },
@@ -29,5 +50,35 @@ export const complaintService = {
     a.click();
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
+  },
+  openPdfInNewTab: async (id: string, options?: {
+    showCover?: boolean;
+    showWatermark?: boolean;
+    showFooter?: boolean;
+    showDocId?: boolean;
+    showEditorialSeal?: boolean;
+    showHighlights?: boolean;
+  }) => {
+    let urlPath = `/complaints/${id}/pdf`;
+    if (options) {
+      const params = new URLSearchParams();
+      if (options.showCover !== undefined) params.append("showCover", String(options.showCover));
+      if (options.showWatermark !== undefined) params.append("showWatermark", String(options.showWatermark));
+      if (options.showFooter !== undefined) params.append("showFooter", String(options.showFooter));
+      if (options.showDocId !== undefined) params.append("showDocId", String(options.showDocId));
+      if (options.showEditorialSeal !== undefined) params.append("showEditorialSeal", String(options.showEditorialSeal));
+      if (options.showHighlights !== undefined) params.append("showHighlights", String(options.showHighlights));
+      const queryString = params.toString();
+      if (queryString) {
+        urlPath += `?${queryString}`;
+      }
+    }
+    const blob = await api.get<Blob>(urlPath, {
+      headers: {
+        Accept: "application/pdf",
+      },
+    });
+    const url = window.URL.createObjectURL(blob);
+    window.open(url, "_blank");
   },
 };

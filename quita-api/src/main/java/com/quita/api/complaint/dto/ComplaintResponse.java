@@ -20,6 +20,7 @@ public class ComplaintResponse {
     private String disclaimer;
     private List<ConsumerGovInstruction> consumerGovInstructions;
     private String message;
+    private List<String> detectedIssues;
 
     @Data
     @NoArgsConstructor

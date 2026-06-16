@@ -44,6 +44,73 @@ import { CustomToastContainer, ToastMessage } from "@/components/ui/custom-toast
 import { CustomModal } from "@/components/ui/custom-modal";
 import { ConsentCheckbox } from "@/components/legal/ConsentCheckbox";
 
+const parseBrazilianCurrency = (value: string): number | undefined => {
+  if (!value) return undefined;
+  
+  const lower = value.toLowerCase().trim();
+  
+  let multiplier = 1;
+  if (lower.endsWith("mil") || lower.includes(" mil ") || lower.endsWith("k")) {
+    multiplier = 1000;
+  } else if (lower.includes("milhão") || lower.includes("milhoes") || lower.includes("milhões")) {
+    multiplier = 1000000;
+  }
+  
+  const cleaned = lower.replace(/[^\d.,]/g, "");
+  if (!cleaned) return undefined;
+  
+  let numVal: number;
+  if (cleaned.includes(",")) {
+    const normalized = cleaned.replace(/\./g, "").replace(",", ".");
+    numVal = parseFloat(normalized);
+  } else {
+    if (cleaned.includes(".")) {
+      const parts = cleaned.split(".");
+      const lastPart = parts[parts.length - 1];
+      if (lastPart.length === 3) {
+        const normalized = cleaned.replace(/\./g, "");
+        numVal = parseFloat(normalized);
+      } else {
+        numVal = parseFloat(cleaned);
+      }
+    } else {
+      numVal = parseFloat(cleaned);
+    }
+  }
+  
+  if (isNaN(numVal)) return undefined;
+  return numVal * multiplier;
+};
+
+const formatBrlAsYouType = (value: string): string => {
+  // Remove anything that is not a digit or comma
+  let clean = value.replace(/[^\d,]/g, "");
+  
+  // Split into integer and decimal parts at the first comma
+  const commaIndex = clean.indexOf(",");
+  let integerPart = clean;
+  let decimalPart = "";
+  
+  if (commaIndex !== -1) {
+    integerPart = clean.substring(0, commaIndex);
+    decimalPart = clean.substring(commaIndex + 1).replace(/,/g, "").substring(0, 2);
+  }
+  
+  if (integerPart) {
+    const parsedInt = parseInt(integerPart, 10);
+    if (!isNaN(parsedInt)) {
+      integerPart = parsedInt.toLocaleString("pt-BR");
+    } else {
+      integerPart = "";
+    }
+  }
+  
+  if (commaIndex !== -1) {
+    return integerPart + "," + decimalPart;
+  }
+  return integerPart;
+};
+
 const INITIAL_STATE: WizardState = {
   step: 1,
   originalDebts: [],
@@ -52,6 +119,19 @@ const INITIAL_STATE: WizardState = {
   currentDebtValue: "",
   generatedComplaint: null,
 };
+
+const LOADING_MESSAGES = [
+  "Recuperando credores cadastrados...",
+  "Verificando valores e apontamentos no Registrato...",
+  "Entendendo o seu contexto de endividamento...",
+  "Identificando irregularidades cadastrais e de evolução...",
+  "Analisando normativas do Banco Central do Brasil...",
+  "Estruturando hipóteses e raciocínio regulatório...",
+  "Determinando o melhor estilo e padrão editorial...",
+  "Redigindo manifestação com base no blueprint de escrita humana...",
+  "Aplicando auto-crítica contra clichês robóticos...",
+  "Finalizando e revisando formatação para o Consumidor.gov.br..."
+];
 
 export default function WizardPage() {
   const { user, isAuthenticated, loading: authLoading, logout } = useAuth();
@@ -64,6 +144,7 @@ export default function WizardPage() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [loadingMessageIdx, setLoadingMessageIdx] = useState(0);
   
   // Local edit debt state
   const [editingDebtId, setEditingDebtId] = useState<string | null>(null);
@@ -75,6 +156,7 @@ export default function WizardPage() {
   // IA editable complaint text
   const [complaintText, setComplaintText] = useState("");
   const [copiedText, setCopiedText] = useState(false);
+  const generationStartTimeRef = React.useRef<number>(0);
 
   // Toast state
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -88,6 +170,14 @@ export default function WizardPage() {
 
   // Reset modal state
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+
+  // PDF Export options state
+  const [showCover, setShowCover] = useState(false);
+  const [showWatermark, setShowWatermark] = useState(true);
+  const [showFooter, setShowFooter] = useState(true);
+  const [showDocId, setShowDocId] = useState(true);
+  const [showEditorialSeal, setShowEditorialSeal] = useState(true);
+  const [showHighlights, setShowHighlights] = useState(true);
 
   // Auth Guard
   useEffect(() => {
@@ -129,6 +219,17 @@ export default function WizardPage() {
     }
   }, [user]);
 
+  // Loading messages rotation
+  useEffect(() => {
+    if (state.step === 9) {
+      setLoadingMessageIdx(0);
+      const interval = setInterval(() => {
+        setLoadingMessageIdx((prev) => (prev + 1) % LOADING_MESSAGES.length);
+      }, 900);
+      return () => clearInterval(interval);
+    }
+  }, [state.step]);
+
   // Save wizard state helper
   const updateState = (updater: Partial<WizardState> | ((prev: WizardState) => WizardState)) => {
     setState((prev) => {
@@ -138,6 +239,18 @@ export default function WizardPage() {
       }
       return next;
     });
+  };
+
+  const transitionToStepWithDelay = (nextStep: number, extraUpdates: Partial<WizardState> = {}, callback?: () => void) => {
+    const elapsed = Date.now() - generationStartTimeRef.current;
+    const remainingTime = Math.max(0, 5000 - elapsed);
+    setTimeout(() => {
+      updateState({
+        ...extraUpdates,
+        step: nextStep,
+      });
+      if (callback) callback();
+    }, remainingTime);
   };
 
   // Reset wizard progress helper
@@ -204,19 +317,18 @@ export default function WizardPage() {
     mutationFn: (data: { institution: string; value?: number }) =>
       complaintService.generate(data.institution, data.value),
     onSuccess: (data) => {
-      updateState({
-        generatedComplaint: data,
-        step: 10,
+      transitionToStepWithDelay(10, { generatedComplaint: data }, () => {
+        setComplaintText(data.complaint);
+        // Increment claims count locally to showcase progress on dashboard
+        const currentClaims = parseInt(localStorage.getItem("quota_claims_count") || "0");
+        localStorage.setItem("quota_claims_count", (currentClaims + 1).toString());
+        queryClient.invalidateQueries({ queryKey: ["complaints"] });
       });
-      setComplaintText(data.complaint);
-      // Increment claims count locally to showcase progress on dashboard
-      const currentClaims = parseInt(localStorage.getItem("quota_claims_count") || "0");
-      localStorage.setItem("quota_claims_count", (currentClaims + 1).toString());
-      queryClient.invalidateQueries({ queryKey: ["complaints"] });
     },
     onError: () => {
-      addToast("Erro ao estruturar reclamação com a IA. Tente novamente.", "error");
-      updateState({ step: 8 });
+      transitionToStepWithDelay(8, {}, () => {
+        addToast("Erro ao estruturar reclamação com a IA. Tente novamente.", "error");
+      });
     },
   });
 
@@ -225,13 +337,14 @@ export default function WizardPage() {
     mutationFn: (data: { id: string; value?: number }) =>
       complaintService.regenerate(data.id, data.value),
     onSuccess: (data) => {
-      updateState({
-        generatedComplaint: data,
+      transitionToStepWithDelay(10, { generatedComplaint: data }, () => {
+        setComplaintText(data.complaint);
       });
-      setComplaintText(data.complaint);
     },
     onError: () => {
-      addToast("Erro ao regenerar texto. Tente novamente.", "error");
+      transitionToStepWithDelay(10, {}, () => {
+        addToast("Erro ao regenerar texto. Tente novamente.", "error");
+      });
     },
   });
 
@@ -338,20 +451,23 @@ export default function WizardPage() {
 
   const handleGenerate = () => {
     if (!state.selectedInstitution) return;
+    generationStartTimeRef.current = Date.now();
     updateState({ step: 9 });
-    const currentVal = state.currentDebtValue ? parseFloat(state.currentDebtValue.replace(",", ".")) : undefined;
+    const currentVal = parseBrazilianCurrency(state.currentDebtValue);
     generateMutation.mutate({
       institution: state.selectedInstitution,
-      value: isNaN(currentVal as number) ? undefined : currentVal,
+      value: currentVal,
     });
   };
 
   const handleRegenerate = () => {
     if (!state.generatedComplaint?.id) return;
-    const currentVal = state.currentDebtValue ? parseFloat(state.currentDebtValue.replace(",", ".")) : undefined;
+    generationStartTimeRef.current = Date.now();
+    updateState({ step: 9 });
+    const currentVal = parseBrazilianCurrency(state.currentDebtValue);
     regenerateMutation.mutate({
       id: state.generatedComplaint.id,
-      value: isNaN(currentVal as number) ? undefined : currentVal,
+      value: currentVal,
     });
   };
 
@@ -367,13 +483,40 @@ export default function WizardPage() {
     try {
       await complaintService.downloadPdf(
         state.generatedComplaint.id,
-        `Reclamacao_Quita_${state.selectedInstitution?.replace(/\s+/g, "_")}.pdf`
+        `Reclamacao_Quita_${state.selectedInstitution?.replace(/\s+/g, "_")}.pdf`,
+        {
+          showCover,
+          showWatermark,
+          showFooter,
+          showDocId,
+          showEditorialSeal,
+          showHighlights,
+        }
       );
       const currentDownloads = parseInt(localStorage.getItem("quota_pdf_downloads") || "0");
       localStorage.setItem("quota_pdf_downloads", (currentDownloads + 1).toString());
       addToast("Download concluído com sucesso!", "success");
     } catch (err) {
       addToast("Erro ao baixar PDF da reclamação.", "error");
+    }
+  };
+
+  const handleViewPdf = async () => {
+    if (!state.generatedComplaint?.id) return;
+    try {
+      await complaintService.openPdfInNewTab(
+        state.generatedComplaint.id,
+        {
+          showCover,
+          showWatermark,
+          showFooter,
+          showDocId,
+          showEditorialSeal,
+          showHighlights,
+        }
+      );
+    } catch (err) {
+      addToast("Erro ao carregar prévia do PDF.", "error");
     }
   };
 
@@ -986,8 +1129,8 @@ export default function WizardPage() {
                     <input
                       type="text"
                       value={state.currentDebtValue}
-                      onChange={(e) => updateState({ currentDebtValue: e.target.value })}
-                      placeholder="Ex: 1200,00"
+                      onChange={(e) => updateState({ currentDebtValue: formatBrlAsYouType(e.target.value) })}
+                      placeholder="Ex: 1.200,00"
                       className="block w-full pl-10 pr-3 py-3.5 bg-white border border-slate-200 rounded-xl text-brand-petroleo placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-brand-emerald-500 text-sm"
                     />
                   </div>
@@ -1014,20 +1157,39 @@ export default function WizardPage() {
           {/* STEP 9: Geração da Reclamação (Loading) */}
           {state.step === 9 && (
             <div className="flex flex-col items-center justify-center py-12 space-y-6 text-center">
-              <div className="relative w-16 h-16">
-                <div className="absolute inset-0 rounded-full border-4 border-slate-200"></div>
+              <div className="relative w-20 h-20">
+                <div className="absolute inset-0 rounded-full border-4 border-brand-emerald-500/10"></div>
                 <div className="absolute inset-0 rounded-full border-4 border-brand-emerald-600 border-t-transparent animate-spin"></div>
-                <Cpu className="w-6 h-6 text-brand-emerald-650 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                <Cpu className="w-8 h-8 text-brand-emerald-650 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
               </div>
 
               <div className="space-y-2">
-                <h3 className="text-xl font-bold text-brand-petroleo animate-pulse">Estruturando Reclamação com Inteligência Artificial</h3>
-                <p className="text-sm text-slate-500 max-w-md leading-relaxed font-medium">
-                  Aguarde. Nosso modelo está analisando seu histórico, localizando inconsistências regulatórias e redigindo a contestação para o Consumidor.gov.br.
+                <h3 className="text-xl font-bold text-brand-petroleo">O assistente está estruturando seu manifesto</h3>
+                <p className="text-sm text-slate-500 max-w-md leading-relaxed font-semibold">
+                  Nosso assistente está analisando seu caso para redigir uma contestação personalizada e livre de clichês robotizados.
                 </p>
               </div>
-              <div className="text-xs text-brand-emerald-600 font-mono font-bold">
-                Analisando normativas do Banco Central do Brasil...
+
+              {/* Status do Agente com barra de progresso */}
+              <div className="w-full max-w-md bg-brand-offwhite-100 p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  <span>Status do Agente</span>
+                  <span className="text-brand-emerald-600 font-mono font-bold">
+                    {Math.round(((loadingMessageIdx + 1) / LOADING_MESSAGES.length) * 100)}%
+                  </span>
+                </div>
+
+                <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-brand-emerald-600 transition-all duration-500 ease-out"
+                    style={{ width: `${((loadingMessageIdx + 1) / LOADING_MESSAGES.length) * 100}%` }}
+                  ></div>
+                </div>
+
+                <div className="text-xs text-brand-emerald-650 font-bold h-6 flex items-center justify-center gap-2 transition-all">
+                  <span className="w-2 h-2 rounded-full bg-brand-emerald-600 animate-ping"></span>
+                  {LOADING_MESSAGES[loadingMessageIdx]}
+                </div>
               </div>
             </div>
           )}
@@ -1099,6 +1261,113 @@ export default function WizardPage() {
                 </div>
               </div>
 
+              {/* Painel de Customização de Aparência do PDF */}
+              <div className="bg-brand-offwhite-100 border border-slate-200 p-4.5 rounded-2xl space-y-4">
+                <div className="flex items-center gap-2 border-b border-slate-200 pb-2.5">
+                  <FileText className="w-4.5 h-4.5 text-brand-emerald-600" />
+                  <h3 className="text-xs font-bold text-brand-petroleo uppercase tracking-wider">
+                    Personalização do Dossiê PDF (Aparência)
+                  </h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Option 1: Capa */}
+                  <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={showCover}
+                      onChange={(e) => setShowCover(e.target.checked)}
+                      className="mt-1 w-4 h-4 rounded text-brand-emerald-600 border-slate-300 focus:ring-brand-emerald-500 cursor-pointer"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-brand-petroleo block">Página de Capa</span>
+                      <span className="text-[10px] text-slate-500 leading-normal block">
+                        Gerar folha de rosto institucional
+                      </span>
+                    </div>
+                  </label>
+
+                  {/* Option 2: Marca d'água */}
+                  <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={showWatermark}
+                      onChange={(e) => setShowWatermark(e.target.checked)}
+                      className="mt-1 w-4 h-4 rounded text-brand-emerald-600 border-slate-300 focus:ring-brand-emerald-500 cursor-pointer"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-brand-petroleo block">Marca d'água</span>
+                      <span className="text-[10px] text-slate-500 leading-normal block">
+                        Adicionar padrão de segurança abstrato
+                      </span>
+                    </div>
+                  </label>
+
+                  {/* Option 3: Rodapé */}
+                  <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={showFooter}
+                      onChange={(e) => setShowFooter(e.target.checked)}
+                      className="mt-1 w-4 h-4 rounded text-brand-emerald-600 border-slate-300 focus:ring-brand-emerald-500 cursor-pointer"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-brand-petroleo block">Rodapé e Paginação</span>
+                      <span className="text-[10px] text-slate-500 leading-normal block">
+                        Exibir paginação oficial
+                      </span>
+                    </div>
+                  </label>
+
+                  {/* Option 4: Doc ID */}
+                  <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={showDocId}
+                      onChange={(e) => setShowDocId(e.target.checked)}
+                      className="mt-1 w-4 h-4 rounded text-brand-emerald-600 border-slate-300 focus:ring-brand-emerald-500 cursor-pointer"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-brand-petroleo block">ID no Cabeçalho</span>
+                      <span className="text-[10px] text-slate-500 leading-normal block">
+                        Exibir código verificador único
+                      </span>
+                    </div>
+                  </label>
+
+                  {/* Option 5: Destaques */}
+                  <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={showHighlights}
+                      onChange={(e) => setShowHighlights(e.target.checked)}
+                      className="mt-1 w-4 h-4 rounded text-brand-emerald-600 border-slate-300 focus:ring-brand-emerald-500 cursor-pointer"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-brand-petroleo block">Destaques Visuais</span>
+                      <span className="text-[10px] text-slate-500 leading-normal block">
+                        Termos em verde esmeralda no texto
+                      </span>
+                    </div>
+                  </label>
+
+                  {/* Option 6: Selo Editorial */}
+                  <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={showEditorialSeal}
+                      onChange={(e) => setShowEditorialSeal(e.target.checked)}
+                      className="mt-1 w-4 h-4 rounded text-brand-emerald-600 border-slate-300 focus:ring-brand-emerald-500 cursor-pointer"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-brand-petroleo block">Selo Editorial</span>
+                      <span className="text-[10px] text-slate-500 leading-normal block">
+                        Declaração de autenticidade no encerramento
+                      </span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Copy Text Card */}
                 <div className="bg-brand-offwhite-100 border border-slate-200 p-6 rounded-2xl flex flex-col justify-between hover:border-brand-emerald-500/20 transition-all shadow-sm">
@@ -1126,15 +1395,21 @@ export default function WizardPage() {
                 {/* PDF Card */}
                 <div className="bg-brand-offwhite-100 border border-slate-200 p-6 rounded-2xl flex flex-col justify-between hover:border-brand-emerald-500/20 transition-all shadow-sm">
                   <div>
-                    <h3 className="font-bold text-brand-petroleo mb-2">Baixar PDF Formatado</h3>
+                    <h3 className="font-bold text-brand-petroleo mb-2">Dossiê PDF Formatado</h3>
                     <p className="text-xs text-slate-505 mb-6 leading-relaxed font-semibold">
                       Gera um PDF contendo o detalhamento da dívida e a fundamentação jurídica de forma estruturada.
                     </p>
                   </div>
-                  <Button variant="primary" onClick={handleDownloadPdf} className="w-full">
-                    <Download className="w-4.5 h-4.5 mr-1.5" />
-                    Baixar PDF
-                  </Button>
+                  <div className="flex flex-col gap-2.5 w-full">
+                    <Button variant="primary" onClick={handleDownloadPdf} className="w-full">
+                      <Download className="w-4.5 h-4.5 mr-1.5" />
+                      Baixar PDF
+                    </Button>
+                    <Button variant="secondary" onClick={handleViewPdf} className="w-full bg-white border border-slate-200">
+                      <ExternalLink className="w-4.5 h-4.5 text-brand-emerald-650 mr-1.5" />
+                      Visualizar PDF
+                    </Button>
+                  </div>
                 </div>
               </div>
 

@@ -12,7 +12,6 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.font.PDType0Font;
-import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -33,6 +32,15 @@ public class ComplaintGenerationService {
     private final DebtRepository debtRepository;
     private final LLMClient llmClient;
     private final PromptBuilder promptBuilder;
+    private final RegulatoryCaseClassifier regulatoryCaseClassifier;
+    private final ComplaintTextPostProcessor complaintTextPostProcessor;
+    private final ComplaintPatternSelector complaintPatternSelector;
+    private final NarrativeVariationEngine narrativeVariationEngine;
+    private final ComplaintQualityValidator complaintQualityValidator;
+    private final RegulatoryIssueDetector regulatoryIssueDetector;
+    private final RegulatoryIssuePromptEnricher regulatoryIssuePromptEnricher;
+    private final RegulatoryReasoningBuilder regulatoryReasoningBuilder;
+    private final HumanComplaintBlueprint humanComplaintBlueprint;
 
     @Value("${quita.llm.provider:GEMINI}")
     private String llmProvider;
@@ -41,11 +49,29 @@ public class ComplaintGenerationService {
             ComplaintRepository complaintRepository,
             DebtRepository debtRepository,
             LLMClient llmClient,
-            PromptBuilder promptBuilder) {
+            PromptBuilder promptBuilder,
+            RegulatoryCaseClassifier regulatoryCaseClassifier,
+            ComplaintTextPostProcessor complaintTextPostProcessor,
+            ComplaintPatternSelector complaintPatternSelector,
+            NarrativeVariationEngine narrativeVariationEngine,
+            ComplaintQualityValidator complaintQualityValidator,
+            RegulatoryIssueDetector regulatoryIssueDetector,
+            RegulatoryIssuePromptEnricher regulatoryIssuePromptEnricher,
+            RegulatoryReasoningBuilder regulatoryReasoningBuilder,
+            HumanComplaintBlueprint humanComplaintBlueprint) {
         this.complaintRepository = complaintRepository;
         this.debtRepository = debtRepository;
         this.llmClient = llmClient;
         this.promptBuilder = promptBuilder;
+        this.regulatoryCaseClassifier = regulatoryCaseClassifier;
+        this.complaintTextPostProcessor = complaintTextPostProcessor;
+        this.complaintPatternSelector = complaintPatternSelector;
+        this.narrativeVariationEngine = narrativeVariationEngine;
+        this.complaintQualityValidator = complaintQualityValidator;
+        this.regulatoryIssueDetector = regulatoryIssueDetector;
+        this.regulatoryIssuePromptEnricher = regulatoryIssuePromptEnricher;
+        this.regulatoryReasoningBuilder = regulatoryReasoningBuilder;
+        this.humanComplaintBlueprint = humanComplaintBlueprint;
     }
 
     private static final String JURIDICAL_DISCLAIMER =
@@ -83,21 +109,105 @@ public class ComplaintGenerationService {
         int maxVersion = complaintRepository.findMaxVersionByUserIdAndInstitution(userId, request.getInstitution());
         int newVersion = maxVersion + 1;
 
-        String prompt = promptBuilder.buildPrompt(request.getInstitution(), instDebts, request.getCurrentDebtValue());
+        RegulatoryCaseContext context = regulatoryCaseClassifier.classify(
+                request.getInstitution(), instDebts, request.getCurrentDebtValue(), userDebts);
 
-        String generatedText;
-        String generatedBy;
+        // SDD-007F: Detect issues
+        List<DetectedIssue> detectedIssues = regulatoryIssueDetector.detectIssues(context);
+        List<String> issueExplanations = detectedIssues.stream()
+                .map(di -> di.issue().getDescription() + ": " + di.explanation())
+                .toList();
+
+        // SDD-007E: Pattern selection & variation
+        ComplaintPattern pattern = complaintPatternSelector.selectPattern(userId, context, newVersion);
+        String opening = narrativeVariationEngine.selectOpening(userId, request.getInstitution(), pattern, newVersion);
+        String closing = narrativeVariationEngine.selectClosing(userId, request.getInstitution(), pattern, newVersion);
+
+        String enrichmentText = regulatoryIssuePromptEnricher.enrichPrompt(detectedIssues);
+        List<String> reasonings = regulatoryReasoningBuilder.buildReasonings(
+                request.getInstitution(), context, request.getCurrentDebtValue(), detectedIssues);
+        String blueprintInst = humanComplaintBlueprint.getBlueprintInstructions();
+
+        String prompt = promptBuilder.buildPrompt(
+                request.getInstitution(), context, request.getCurrentDebtValue(), pattern, opening, closing, 
+                enrichmentText, blueprintInst, reasonings);
+
+        String generatedText = null;
+        String generatedBy = null;
         String message = null;
 
+        boolean success = false;
         try {
-            generatedText = llmClient.generate(prompt);
-            generatedBy = llmProvider.toUpperCase();
-        } catch (Exception e) {
-            if (!allowFallback) {
-                throw e;
+            // 1. Generate via LLM (1 attempt)
+            String rawText = llmClient.generate(prompt);
+            
+            // 2. Evaluate
+            ComplaintQualityValidator.ValidationResult val = complaintQualityValidator.validate(
+                    rawText, request.getInstitution(), context.getTotalAmount(), request.getCurrentDebtValue());
+            
+            String textToChallenge = null;
+            if (val.isValid()) {
+                textToChallenge = rawText;
+            } else {
+                // Score < 85 -> run Repair (post-processing)
+                String repairedText = complaintTextPostProcessor.postProcess(rawText);
+                val = complaintQualityValidator.validate(
+                        repairedText, request.getInstitution(), context.getTotalAmount(), request.getCurrentDebtValue());
+                if (val.isValid()) {
+                    textToChallenge = repairedText;
+                }
             }
-            // Fallback determinístico
-            generatedText = PromptBuilder.BASE_TEMPLATE;
+
+            if (textToChallenge != null) {
+                // 3. Challenge Stage
+                String challengePrompt = "Analise criticamente a seguinte manifestação regulatória destinada a uma instituição financeira. "
+                        + "Identifique se ela possui clichês genéricos, se parece um modelo pronto de internet, se falha em individualizar os dados do caso do consumidor, ou se tem pedidos desvinculados dos fatos.\n"
+                        + "Se encontrar qualquer falha ou ponto fraco, descreva qual é esse ponto mais fraco em uma única frase direta.\n"
+                        + "Se a manifestação estiver perfeita, altamente técnica, individualizada e excelente, responda APENAS: EXCELENTE\n\n"
+                        + "MANIFESTAÇÃO:\n" + textToChallenge;
+                
+                String critique = llmClient.generate(challengePrompt);
+                if (critique != null && critique.trim().toUpperCase().contains("EXCELENTE") && critique.trim().length() < 25) {
+                    generatedText = textToChallenge;
+                    generatedBy = llmProvider.toUpperCase();
+                    success = true;
+                } else {
+                    // Challenge failed! Trigger Regeneration with the critique
+                    String regenPrompt = prompt + "\n\nCRÍTICA INTERNA DETECTADA A CORRIGIR: " + critique 
+                            + "\nPor favor, reescreva a manifestação de forma a sanar essa fraqueza específica, mantendo as evidências fáticas e sem clichês.";
+                    String regeneratedText = llmClient.generate(regenPrompt);
+                    
+                    ComplaintQualityValidator.ValidationResult valRegen = complaintQualityValidator.validate(
+                            regeneratedText, request.getInstitution(), context.getTotalAmount(), request.getCurrentDebtValue());
+                    if (valRegen.isValid()) {
+                        generatedText = regeneratedText;
+                        generatedBy = llmProvider.toUpperCase();
+                        success = true;
+                    } else {
+                        // Attempt to repair the regenerated text as a last resort before fallback
+                        String repairedRegen = complaintTextPostProcessor.postProcess(regeneratedText);
+                        valRegen = complaintQualityValidator.validate(
+                                repairedRegen, request.getInstitution(), context.getTotalAmount(), request.getCurrentDebtValue());
+                        if (valRegen.isValid()) {
+                            generatedText = repairedRegen;
+                            generatedBy = llmProvider.toUpperCase();
+                            success = true;
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            // LLM threw an exception, fall through to fallback
+        }
+
+        if (!success) {
+            if (!allowFallback) {
+                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Não foi possível gerar uma manifestação com qualidade aceitável.");
+            }
+            // Fallback Premium Dinâmico V2
+            String fallbackRaw = promptBuilder.buildFallbackText(
+                    request.getInstitution(), context, request.getCurrentDebtValue(), pattern, opening, closing, newVersion);
+            generatedText = complaintTextPostProcessor.postProcess(fallbackRaw);
             generatedBy = "TEMPLATE_ONLY";
             message = "Não foi possível personalizar o texto neste momento. Uma versão padrão foi gerada com sucesso.";
         }
@@ -117,7 +227,7 @@ public class ComplaintGenerationService {
 
         complaintRepository.save(complaint);
 
-        return mapToResponse(complaint, message);
+        return mapToResponse(complaint, message, issueExplanations);
     }
 
     @Transactional
@@ -142,119 +252,18 @@ public class ComplaintGenerationService {
     }
 
     public byte[] generateComplaintPdf(Complaint complaint) throws IOException {
-        try (PDDocument doc = new PDDocument()) {
-            PDPage page = new PDPage();
-            doc.addPage(page);
+        return generateComplaintPdf(complaint, new com.quita.api.complaint.pdf.QuitaPdfOptions());
+    }
 
-            PDPageContentStream contentStream = new PDPageContentStream(doc, page);
-            contentStream.beginText();
-
-            // Load font from resources
-            PDType0Font font;
-            try (InputStream fontStream = getClass().getResourceAsStream("/arial.ttf")) {
-                if (fontStream == null) {
-                    throw new IllegalStateException("Font file /arial.ttf not found in classpath");
-                }
-                font = PDType0Font.load(doc, fontStream);
-            }
-
-            // Title
-            contentStream.setFont(font, 16);
-            contentStream.newLineAtOffset(50, 750);
-            contentStream.showText("Reclamacao - " + complaint.getInstitution());
-            contentStream.newLineAtOffset(0, -25);
-
-            // Metadata
-            contentStream.setFont(font, 10);
-            contentStream.showText("Versao: " + complaint.getVersion() + " | Gerado por: " + complaint.getGeneratedBy());
-            contentStream.newLineAtOffset(0, -15);
-            contentStream.showText("Data: " + complaint.getCreatedAt().toString());
-            contentStream.newLineAtOffset(0, -25);
-
-            contentStream.setFont(font, 11);
-
-            String[] paragraphs = complaint.getComplaintText().split("\n");
-            float yPosition = 685;
-            float margin = 50;
-            float leading = 15;
-
-            for (String paragraph : paragraphs) {
-                // Strip emoji or unsupported characters (keep latin basic and punctuation)
-                String cleanText = paragraph.replaceAll("[^\\p{L}\\p{N}\\p{P}\\p{Z}\\n]", "");
-                if (cleanText.trim().isEmpty()) {
-                    contentStream.newLineAtOffset(0, -leading);
-                    yPosition -= leading;
-                    if (yPosition < margin) {
-                        contentStream.endText();
-                        contentStream.close();
-
-                        page = new PDPage();
-                        doc.addPage(page);
-                        contentStream = new PDPageContentStream(doc, page);
-                        contentStream.beginText();
-                        contentStream.setFont(font, 11);
-                        contentStream.newLineAtOffset(50, 750);
-                        yPosition = 750;
-                    }
-                    continue;
-                }
-
-                // Wrap words
-                String[] words = cleanText.split(" ");
-                StringBuilder line = new StringBuilder();
-                for (String word : words) {
-                    String testLine = line.length() == 0 ? word : line + " " + word;
-                    float width = font.getStringWidth(testLine) / 1000 * 11;
-                    if (width > 500) {
-                        contentStream.showText(line.toString());
-                        contentStream.newLineAtOffset(0, -leading);
-                        yPosition -= leading;
-                        if (yPosition < margin) {
-                            contentStream.endText();
-                            contentStream.close();
-
-                            page = new PDPage();
-                            doc.addPage(page);
-                            contentStream = new PDPageContentStream(doc, page);
-                            contentStream.beginText();
-                            contentStream.setFont(font, 11);
-                            contentStream.newLineAtOffset(50, 750);
-                            yPosition = 750;
-                        }
-                        line = new StringBuilder(word);
-                    } else {
-                        line = new StringBuilder(testLine);
-                    }
-                }
-                if (line.length() > 0) {
-                    contentStream.showText(line.toString());
-                    contentStream.newLineAtOffset(0, -leading);
-                    yPosition -= leading;
-                    if (yPosition < margin) {
-                        contentStream.endText();
-                        contentStream.close();
-
-                        page = new PDPage();
-                        doc.addPage(page);
-                        contentStream = new PDPageContentStream(doc, page);
-                        contentStream.beginText();
-                        contentStream.setFont(font, 11);
-                        contentStream.newLineAtOffset(50, 750);
-                        yPosition = 750;
-                    }
-                }
-            }
-
-            contentStream.endText();
-            contentStream.close();
-
-            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
-            doc.save(out);
-            return out.toByteArray();
-        }
+    public byte[] generateComplaintPdf(Complaint complaint, com.quita.api.complaint.pdf.QuitaPdfOptions options) throws IOException {
+        return com.quita.api.complaint.pdf.QuitaDocumentRenderer.render(complaint, options);
     }
 
     private ComplaintResponse mapToResponse(Complaint c, String message) {
+        return mapToResponse(c, message, null);
+    }
+
+    private ComplaintResponse mapToResponse(Complaint c, String message, List<String> detectedIssues) {
         return ComplaintResponse.builder()
                 .id(c.getId())
                 .institution(c.getInstitution())
@@ -265,6 +274,7 @@ public class ComplaintGenerationService {
                 .disclaimer(JURIDICAL_DISCLAIMER)
                 .consumerGovInstructions(CONSUMER_GOV_STEPS)
                 .message(message)
+                .detectedIssues(detectedIssues)
                 .build();
     }
 }
