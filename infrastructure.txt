@@ -1,0 +1,128 @@
+Quita Platform – Infrastructure Overview
+===================================
+
+1. **Overall Architecture**
+   - Backend: Spring Boot (Java 21) REST API (`quita-api`)
+   - Frontend: React/Vite (`frontend` directory) served via `npm run dev`
+   - Database: PostgreSQL 16 (containerized via Docker Compose)
+   - LLM Integration: Ollama (local) and optional Gemini/OpenAI providers (configured in `application.yml`)
+   - Containerization: Docker Compose orchestrates the PostgreSQL service. The API and Frontend are run locally during development but can be container‑ized for production.
+
+2. **Database – PostgreSQL**
+   - Version: `postgres:16`
+   - Container Name: `quita-postgres`
+   - Database Name: `quita_db`
+   - Username: `quita_user`
+   - Password: `quita_pass`
+   - Port Mapping: Host `5432` → Container `5432`
+   - Volume: Persistent volume `postgres_data` mounted at `/var/lib/postgresql/data`
+   - Schema Management: Flyway migrations (`V1`, `V2`, `V3`…) defined in `src/main/resources/db/migration`.
+   - JDBC URL (used by Spring):
+     ```
+     jdbc:postgresql://localhost:5432/quita_db
+     ```
+   - Connection properties are defined in `application.yml` under `spring.datasource`.
+
+3. **Spring Boot Configuration (`application.yml`)**
+   ```yaml
+   spring:
+     application:
+       name: quita-api
+     datasource:
+       url: jdbc:postgresql://localhost:5432/quita_db
+       username: quita_user
+       password: quita_pass
+     jpa:
+       hibernate:
+         ddl-auto: validate
+       show-sql: true
+       properties:
+         hibernate:
+           format_sql: true
+     servlet:
+       multipart:
+         max-file-size: 20MB
+         max-request-size: 20MB
+   server:
+     port: 8080
+   app:
+     jwt:
+       secret: <strong>64‑hex‑character‑secret</strong>
+     storage:
+       upload-dir: uploads
+   logging:
+     level:
+       org.springframework.security: DEBUG
+       org.springframework.web: DEBUG
+   quita:
+     insights:
+       high-debt-threshold: 10000.00
+     llm:
+       provider: GEMINI
+       mock: true
+       gemini:
+         api-key: ${GEMINI_API_KEY:}
+       openai:
+         api-key: ${OPENAI_API_KEY:}
+       ollama:
+         url: ${OLLAMA_URL:http://localhost:11434/api/generate}
+   ```
+   - **Key deployment parameters**
+     * `server.port` – Port on which the API listens (default 8080).
+     * `app.storage.upload-dir` – Folder relative to the project root where uploaded PDFs are stored (`uploads`).
+     * JWT secret – Must be replaced with a strong random hex string in production (set via env var).
+     * LLM provider URLs / API keys – Provided through environment variables (`GEMINI_API_KEY`, `OPENAI_API_KEY`, `OLLAMA_URL`).
+
+4. **Docker Compose (`docker-compose.yml`)**
+   ```yaml
+   services:
+     postgres:
+       image: postgres:16
+       container_name: quita-postgres
+       environment:
+         POSTGRES_DB: quita_db
+         POSTGRES_USER: quita_user
+         POSTGRES_PASSWORD: quita_pass
+       ports:
+         - "5432:5432"
+       volumes:
+         - postgres_data:/var/lib/postgresql/data
+
+   volumes:
+     postgres_data:
+   ```
+   - **Deploying the DB**
+     ```bash
+     docker compose up -d   # Starts PostgreSQL with persistent volume
+     ```
+   - **Important notes**
+     * Ensure the host ports (`5432`) are not occupied.
+     * For production, consider adding a `restart: unless-stopped` policy and secret management for DB credentials.
+
+5. **Frontend Development Server**
+   - Command: `npm run dev` (executed in `c:\projetos\Quita\frontend`)
+   - Default Vite dev server runs on `http://localhost:5173` (port may be configured in `vite.config.js`).
+   - Proxy configuration (if present) forwards API calls to `http://localhost:8080`.
+
+6. **Deploy‑time Checklist**
+   - **Environment Variables**
+     * `GEMINI_API_KEY` / `OPENAI_API_KEY` – LLM service credentials.
+     * `JWT_SECRET` – Replace placeholder with a strong secret.
+     * `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD` – Override if using a managed DB.
+   - **Ports**
+     * API: `8080`
+     * Frontend (production): typically served by a web server on port `80`/`443`.
+     * DB: `5432` (internal only – not exposed publicly in production).
+   - **Volumes / Persistence**
+     * `postgres_data` – Must be persisted across container restarts.
+     * `uploads` directory – Ensure it is backed up or mounted to a persistent storage location.
+   - **Build Artifacts**
+     * Backend JAR: `./mvnw clean package -DskipTests` → `target/quita-api-0.0.1-SNAPSHOT.jar`
+     * Frontend static assets: `npm run build` → `dist/` directory ready for nginx/Apache.
+   - **Containerised Production Option** (example Dockerfiles omitted for brevity) – Build the Spring Boot JAR, copy to a `openjdk:21-jdk-slim` image, expose `8080`. Serve the frontend from an Nginx container that mounts the `dist` folder.
+
+7. **Additional Services**
+   - **Ollama** (local LLM) – accessed via `${OLLAMA_URL}` (default `http://localhost:11434/api/generate`). If used in production, run the Ollama container and expose port `11434`.
+
+---
+*This file provides a concise reference for developers and DevOps engineers to understand the current infrastructure and the parameters required for deploying the Quita platform.*

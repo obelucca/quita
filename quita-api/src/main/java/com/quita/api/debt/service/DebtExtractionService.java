@@ -43,14 +43,24 @@ public class DebtExtractionService {
             throw new IOException("File not found: " + pdfFile.getAbsolutePath());
         }
 
-        // Parse PDF to get full text
-        String fullText = registratoPdfParser.parse(pdfFile);
+        try {
+            // Parse PDF to get full text
+            String fullText = registratoPdfParser.parse(pdfFile);
 
-        // Extract debts from text
-        List<Debt> extractedDebts = parseText(fullText, document.getId());
+            // Extract debts from text
+            List<Debt> extractedDebts = parseText(fullText, document.getId());
 
-        // Save debts to repository
-        return debtRepository.saveAll(extractedDebts);
+            // Save debts to repository
+            return debtRepository.saveAll(extractedDebts);
+        } finally {
+            try {
+                if (pdfFile.exists()) {
+                    java.nio.file.Files.deleteIfExists(pdfFile.toPath());
+                }
+            } catch (Exception e) {
+                System.err.println("Failed to delete temporary PDF file: " + pdfFile.getAbsolutePath() + ". Error: " + e.getMessage());
+            }
+        }
     }
 
     public List<Debt> parseText(String text, UUID documentId) {
