@@ -44,11 +44,39 @@ When deploying the service on Railway, you must configure the following environm
 6. **Add Other Variables**:
    - Go to the backend service -> **Variables**.
    - Add `SPRING_PROFILES_ACTIVE = prod`
-   - Add `JWT_SECRET` (generate a secure random 256-bit key)
-   - Add `GEMINI_API_KEY` (and other optional LLM environment variables)
+   - Add `JWT_SECRET` (generate a secure random 256-bit key). **Placeholders are not accepted and will crash the app.**
+   - Add `GEMINI_API_KEY` (and other optional LLM environment variables). **If provider is GEMINI and mock is false, this is strictly validated.**
    - Add `UPLOAD_DIR = /tmp`
 7. **Deploy and Validate**:
    - Railway will trigger a build and deploy.
    - Once deployed, verify that the health check endpoint responds successfully:
      - Endpoint: `https://<your-railway-app-url>/actuator/health`
      - Response: `{"status": "UP"}`
+
+## Startup Validation
+
+To prevent silent errors or misconfigured production instances, the backend enforces configuration hardening rules when running under the `prod` profile.
+
+### Mandatory Environment Variables
+The application will **abort startup immediately** if any of these variables are null, empty, or contain known placeholders (like `your_`, `YOUR_`, `change-me`, `replace-me`, `example`):
+- `SPRING_DATASOURCE_URL`
+- `SPRING_DATASOURCE_USERNAME`
+- `SPRING_DATASOURCE_PASSWORD`
+- `JWT_SECRET`
+
+Additionally, if `QUITA_LLM_PROVIDER` is set to `GEMINI` (default) and `QUITA_LLM_MOCK` is set to `false`, the app enforces that `GEMINI_API_KEY` is present and does not contain placeholders.
+
+### Diagnosing Startup Failures
+If any required variable is missing or misconfigured, the build logs on Railway will show a block like this:
+
+```text
+=======================================================================
+  APPLICATION STARTUP FAILED: Missing Required Environment Variables
+=======================================================================
+  The following configurations are invalid for the 'prod' profile:
+  - JWT_SECRET: Missing or contains invalid placeholder value.
+=======================================================================
+```
+
+Followed by an `IllegalStateException` that terminates the process. Check the service **Deploy Logs** in the Railway dashboard to identify which variable is causing the failure.
+

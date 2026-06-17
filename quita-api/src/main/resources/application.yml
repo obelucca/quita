@@ -35,8 +35,8 @@ quita:
   insights:
     high-debt-threshold: 10000.00
   llm:
-    provider: GEMINI
-    mock: true
+    provider: ${QUITA_LLM_PROVIDER:GEMINI}
+    mock: ${QUITA_LLM_MOCK:true}
     gemini:
       api-key: ${GEMINI_API_KEY:}
     openai:
