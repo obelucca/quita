@@ -8,6 +8,7 @@ import { useAuth } from "@/context/AuthContext";
 import { loginSchema, registerSchema, LoginInput, RegisterInput } from "@/schemas";
 import { AlertCircle, Lock, Mail, User, Sparkles } from "lucide-react";
 import Link from "next/link";
+import { handleApiError } from "@/lib/apiErrorHandler";
 
 function AuthForm() {
   const searchParams = useSearchParams();
@@ -58,7 +59,7 @@ function AuthForm() {
       await login(data);
       router.push("/wizard");
     } catch (err: any) {
-      setApiError(err.data?.message || "E-mail ou senha incorretos.");
+      setApiError(handleApiError(err));
     }
   };
 
@@ -68,7 +69,7 @@ function AuthForm() {
       await register(data);
       router.push("/wizard");
     } catch (err: any) {
-      setApiError(err.data?.message || "Erro ao criar conta. E-mail pode já estar em uso.");
+      setApiError(handleApiError(err));
     }
   };
 
@@ -106,6 +107,16 @@ function AuthForm() {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white border border-slate-200 py-8 px-4 shadow-xl rounded-2xl sm:px-10">
+          {/* Session Expired Banner */}
+          {searchParams.get("expired") === "true" && (
+            <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-800 p-3.5 rounded-xl text-xs font-semibold flex items-start gap-2.5 shadow-sm">
+              <AlertCircle className="w-5 h-5 flex-shrink-0 text-amber-600" />
+              <div>
+                <span className="font-bold">Sua sessão expirou.</span> Por favor, faça login novamente para continuar.
+              </div>
+            </div>
+          )}
+
           {/* Tabs header */}
           <div className="flex border-b border-slate-200 mb-6">
             <button
@@ -181,7 +192,10 @@ function AuthForm() {
                 className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 px-4 rounded-xl shadow-lg hover:shadow-emerald-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {authLoading ? (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Entrando...
+                  </span>
                 ) : (
                   "Entrar"
                 )}
@@ -254,7 +268,10 @@ function AuthForm() {
                 className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 px-4 rounded-xl shadow-lg hover:shadow-emerald-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {authLoading ? (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Criando Conta...
+                  </span>
                 ) : (
                   "Criar Conta"
                 )}

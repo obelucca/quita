@@ -30,14 +30,34 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     headers.set("Content-Type", "application/json");
   }
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds
+
   const config: RequestInit = {
     ...options,
     headers,
+    signal: controller.signal,
   };
 
-  const response = await fetch(url, config);
+  let response: Response;
+  try {
+    response = await fetch(url, config);
+  } catch (error: any) {
+    if (error.name === "AbortError") {
+      throw new ApiError("A operação demorou mais do que o esperado. Tente novamente.", 408);
+    }
+    throw new ApiError(error.message || "Erro de conexão de rede.", 503, error);
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
+    if (response.status === 401 && !path.startsWith("/auth/")) {
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("unauthorized-api-call"));
+      }
+    }
+
     let errorData: any = null;
     try {
       errorData = await response.json();

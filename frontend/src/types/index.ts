@@ -6,8 +6,9 @@ export interface User {
 
 export interface LoginResponse {
   token: string;
-  email: string;
-  name: string;
+  type?: string;
+  email?: string;
+  name?: string;
 }
 
 export interface DocumentResponse {

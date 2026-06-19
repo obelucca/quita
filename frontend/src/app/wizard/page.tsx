@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -179,6 +179,33 @@ export default function WizardPage() {
   const [showEditorialSeal, setShowEditorialSeal] = useState(true);
   const [showHighlights, setShowHighlights] = useState(true);
 
+  // Local state for Step 1 guided onboarding sub-steps
+  const [subStep, setSubStep] = useState(1);
+  const [govLevelConfirmed, setGovLevelConfirmed] = useState(false);
+  const [loggedIntoRegistrato, setLoggedIntoRegistrato] = useState(false);
+  const [scrReportGenerated, setScrReportGenerated] = useState(false);
+  const [pdfSavedOnDevice, setPdfSavedOnDevice] = useState(false);
+
+  // Local states for Step 3 smart upload (SDD-012)
+  const [uploadStage, setUploadStage] = useState<"idle" | "pre-analyzing" | "result-success" | "result-failed">("idle");
+  const [loadingStep, setLoadingStep] = useState(1);
+  const [tempInsights, setTempInsights] = useState<any>(null);
+  const [tempDebts, setTempDebts] = useState<DebtAdjustment[]>([]);
+  const preAnalysisIntervalRef = useRef<any>(null);
+
+  // Coordinate pre-analyzing state transition when animation reaches end AND insights are loaded
+  useEffect(() => {
+    if (uploadStage === "pre-analyzing" && loadingStep === 5) {
+      if (tempInsights) {
+        if (tempInsights.institutions && tempInsights.institutions.length > 0) {
+          setUploadStage("result-success");
+        } else {
+          setUploadStage("result-failed");
+        }
+      }
+    }
+  }, [loadingStep, tempInsights, uploadStage]);
+
   // Auth Guard
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -275,6 +302,15 @@ export default function WizardPage() {
     setSelectedFile(null);
     setUploadProgress(0);
     setUploadError(null);
+    setSubStep(1);
+    setGovLevelConfirmed(false);
+    setLoggedIntoRegistrato(false);
+    setScrReportGenerated(false);
+    setPdfSavedOnDevice(false);
+    setUploadStage("idle");
+    setLoadingStep(1);
+    setTempInsights(null);
+    setTempDebts([]);
   };
 
   // Fetch insights
@@ -288,27 +324,37 @@ export default function WizardPage() {
   const uploadMutation = useMutation({
     mutationFn: (file: File) => documentService.upload(file),
     onSuccess: async () => {
-      setUploadProgress(100);
-      const result = await refetchInsights();
-      if (result.data) {
-        const mapped: DebtAdjustment[] = result.data.institutions.map((inst, idx) => ({
-          id: `orig-${idx}-${inst.institution}`,
-          institution: inst.institution,
-          reportedValue: inst.amount,
-          operationType: `${inst.operations} operação(ões)`,
-          isEdited: false,
-          isManual: false,
-        }));
-        updateState({
-          originalDebts: mapped,
-          adjustedDebts: JSON.parse(JSON.stringify(mapped)),
-          step: 4,
-        });
+      try {
+        const result = await refetchInsights();
+        if (result.data) {
+          const mapped: DebtAdjustment[] = result.data.institutions.map((inst, idx) => ({
+            id: `orig-${idx}-${inst.institution}`,
+            institution: inst.institution,
+            reportedValue: inst.amount,
+            operationType: `${inst.operations} operação(ões)`,
+            isEdited: false,
+            isManual: false,
+          }));
+
+          setTempDebts(mapped);
+          setTempInsights(result.data);
+        } else {
+          setUploadStage("result-failed");
+        }
+      } catch (err) {
+        setUploadStage("result-failed");
+        setUploadError("Não foi possível carregar os dados financeiros extraídos.");
       }
     },
     onError: (err: any) => {
-      setUploadProgress(0);
-      setUploadError(err.data?.message || "Não foi possível concluir esta etapa. Vamos tentar novamente com um PDF válido.");
+      if (preAnalysisIntervalRef.current) {
+        clearInterval(preAnalysisIntervalRef.current);
+      }
+      setUploadStage("result-failed");
+      setUploadError(
+        err.data?.message ||
+          "Não foi possível concluir esta etapa. Vamos tentar novamente com um PDF válido."
+      );
     },
   });
 
@@ -351,10 +397,6 @@ export default function WizardPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
-      if (file.type !== "application/pdf") {
-        setUploadError("Por favor, selecione apenas arquivos do tipo PDF.");
-        return;
-      }
       setSelectedFile(file);
       setUploadError(null);
     }
@@ -362,23 +404,24 @@ export default function WizardPage() {
 
   const startUpload = () => {
     if (!selectedFile) return;
+    setUploadStage("pre-analyzing");
+    setLoadingStep(1);
+    setTempInsights(null);
+    setTempDebts([]);
     setUploadError(null);
-    setUploadProgress(10);
-    const interval = setInterval(() => {
-      setUploadProgress((prev) => {
-        if (prev >= 85) {
-          clearInterval(interval);
-          return 85;
-        }
-        return prev + 15;
-      });
-    }, 150);
 
-    uploadMutation.mutate(selectedFile, {
-      onSettled: () => {
-        clearInterval(interval);
-      },
-    });
+    let currentStep = 1;
+    preAnalysisIntervalRef.current = setInterval(() => {
+      currentStep += 1;
+      setLoadingStep(currentStep);
+      if (currentStep >= 5) {
+        if (preAnalysisIntervalRef.current) {
+          clearInterval(preAnalysisIntervalRef.current);
+        }
+      }
+    }, 450);
+
+    uploadMutation.mutate(selectedFile);
   };
 
   // Add Manual Debt
@@ -578,50 +621,344 @@ export default function WizardPage() {
           
           {/* STEP 1: Tutorial Registrato */}
           {state.step === 1 && (
-            <div className="space-y-6">
-              <div className="flex items-center gap-3">
-                <div className="bg-brand-emerald-50 p-3 rounded-xl border border-brand-emerald-100">
-                  <Shield className="w-6 h-6 text-brand-emerald-600" />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-brand-petroleo">Obtenha seu Relatório Registrato</h2>
-                  <p className="text-slate-500 text-sm">O primeiro passo é obter o PDF oficial do Banco Central.</p>
-                </div>
+            <div className="space-y-6 flex flex-col justify-between h-full min-h-[380px]">
+              {/* Indicador de Sub-etapas do Onboarding */}
+              <div className="flex items-center gap-2 pb-4 border-b border-slate-100">
+                {[1, 2, 3, 4].map((stepNum) => (
+                  <div key={stepNum} className="flex-1 flex items-center gap-2">
+                    <div className="flex-grow h-1.5 rounded-full relative bg-slate-100 overflow-hidden">
+                      <div
+                        className={`absolute inset-0 bg-brand-emerald-600 transition-all duration-300 ${
+                          stepNum <= subStep ? "w-full" : "w-0"
+                        }`}
+                      />
+                    </div>
+                    <span className={`text-[10px] font-bold ${
+                      stepNum === subStep ? "text-brand-emerald-650" : "text-slate-400"
+                    }`}>
+                      0{stepNum}
+                    </span>
+                  </div>
+                ))}
               </div>
 
-              <div className="space-y-4">
-                <ClarityCard
-                  title="O que é o Relatório SCR?"
-                  description="É um documento oficial do Banco Central que lista todas as suas operações de crédito ativas (empréstimos, financiamentos e cartões) acima de R$ 200,00."
-                />
+              {/* Etapa 1 */}
+              {subStep === 1 && (
+                <div className="space-y-5 flex-grow flex flex-col justify-between">
+                  <div className="space-y-5">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-brand-emerald-50 p-3 rounded-xl border border-brand-emerald-100 text-brand-emerald-600">
+                        <Shield className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-bold text-brand-petroleo">Verificar Nível da Conta Gov.br</h2>
+                        <p className="text-slate-550 text-xs font-semibold">Antes de acessar o Registrato, você precisa possuir uma conta Gov.br nível Prata ou Ouro.</p>
+                      </div>
+                    </div>
 
-                <div className="bg-brand-offwhite-100 border border-slate-200 p-5 rounded-xl space-y-3 text-xs leading-relaxed text-slate-700">
-                  <h3 className="font-bold text-brand-petroleo text-xs uppercase tracking-wider">Como obter o PDF no site do BC:</h3>
-                  <ol className="list-decimal pl-5 space-y-2">
-                    <li>
-                      Acesse o site oficial:{" "}
+                    <div className="bg-brand-offwhite-100 border border-slate-200 p-5 rounded-2xl space-y-4 text-xs text-slate-700 leading-relaxed font-semibold">
+                      <p className="text-slate-600">
+                        O Banco Central exige autenticação de segurança forte para acessar seus dados financeiros do Registrato.
+                      </p>
+                      <div className="flex gap-4">
+                        <div className="bg-emerald-50 border border-emerald-100 text-emerald-800 px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-[11px]">
+                          <span>✅ Nível Prata</span>
+                        </div>
+                        <div className="bg-emerald-50 border border-emerald-100 text-emerald-800 px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-[11px]">
+                          <span>✅ Nível Ouro</span>
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-rose-600">
+                        ⚠️ Contas Gov.br de nível Bronze não possuem acesso ao Registrato.
+                      </p>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                        <div>
+                          <h4 className="font-bold text-brand-petroleo text-xs mb-1">Como descobrir meu nível?</h4>
+                          <ol className="list-decimal pl-4 space-y-1 text-[11px] text-slate-500">
+                            <li>Acesse o aplicativo ou site do Gov.br.</li>
+                            <li>Faça login na sua conta.</li>
+                            <li>Seu nível (Bronze, Prata ou Ouro) aparecerá em destaque na tela inicial.</li>
+                          </ol>
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-brand-petroleo text-xs mb-1">Como aumentar meu nível?</h4>
+                          <p className="text-[11px] text-slate-550 leading-normal">
+                            <strong>Para Prata:</strong> Faça validação facial (CNH) ou acesse usando as credenciais do seu Internet Banking.<br/>
+                            <strong>Para Ouro:</strong> Valide via biometria facial (TSE/Título de Eleitor) ou use um Certificado Digital.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 pt-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t border-slate-100 pt-4">
                       <a
-                        href="https://registrato.bcb.gov.br/"
+                        href="https://www.gov.br/governodigital/pt-br/conta-gov-br"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-brand-emerald-600 hover:underline inline-flex items-center gap-1 font-semibold"
+                        className="inline-flex items-center justify-center gap-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-705 text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm cursor-pointer"
                       >
-                        Registrato BCB <ExternalLink className="w-3.5 h-3.5" />
+                        Ver Tutorial Gov.br <ExternalLink className="w-3.5 h-3.5" />
                       </a>
-                    </li>
-                    <li>Faça login usando sua credencial <strong>Gov.br</strong> (nível Prata ou Ouro).</li>
-                    <li>Selecione a opção <strong>Empréstimos e Financiamentos</strong>.</li>
-                    <li>Escolha o período desejado e clique em <strong>Gerar relatório</strong>.</li>
-                    <li>Salve o PDF gerado em seu dispositivo para o próximo passo.</li>
-                  </ol>
-                </div>
-              </div>
 
-              <div className="flex justify-end pt-4">
-                <Button variant="primary" onClick={() => updateState({ step: 2 })}>
-                  Entendi, ir para o próximo passo <ChevronRight className="w-5 h-5 ml-1" />
-                </Button>
-              </div>
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={govLevelConfirmed}
+                          onChange={(e) => setGovLevelConfirmed(e.target.checked)}
+                          className="w-4.5 h-4.5 rounded text-brand-emerald-600 border-slate-300 focus:ring-brand-emerald-500 cursor-pointer"
+                        />
+                        <span className="text-xs text-slate-700 font-bold">
+                          Confirmo que possuo uma conta Gov.br nível Prata ou Ouro.
+                        </span>
+                      </label>
+                    </div>
+
+                    <div className="flex justify-end pt-2">
+                      <Button
+                        variant="primary"
+                        onClick={() => setSubStep(2)}
+                        disabled={!govLevelConfirmed}
+                        className="h-11 px-6 font-semibold"
+                      >
+                        Próximo Passo <ChevronRight className="w-4.5 h-4.5 ml-1" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Etapa 2 */}
+              {subStep === 2 && (
+                <div className="space-y-5 flex-grow flex flex-col justify-between">
+                  <div className="space-y-5">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-brand-emerald-50 p-3 rounded-xl border border-brand-emerald-100 text-brand-emerald-600">
+                        <Shield className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-bold text-brand-petroleo">Acessar o Registrato do Banco Central</h2>
+                        <p className="text-slate-550 text-xs font-semibold">O Registrato reúne todas as informações financeiras e de dívidas vinculadas ao seu CPF.</p>
+                      </div>
+                    </div>
+
+                    <div className="bg-brand-offwhite-100 border border-slate-200 p-5 rounded-2xl space-y-4 text-xs text-slate-750 font-semibold leading-relaxed">
+                      <p>
+                        A plataforma é totalmente segura e mantida de forma oficial pelo Banco Central do Brasil.
+                      </p>
+                      <div>
+                        <h4 className="font-bold text-brand-petroleo text-xs mb-2">Instruções para acesso:</h4>
+                        <ol className="list-decimal pl-4 space-y-2 text-slate-600">
+                          <li>Clique no botão <strong>"Acessar Registrato"</strong> abaixo para abrir o site oficial em uma nova aba.</li>
+                          <li>Na página do Banco Central, clique para fazer login com a sua conta <strong>Gov.br</strong>.</li>
+                          <li>Preencha seu CPF e senha e autorize o acesso.</li>
+                        </ol>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 pt-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t border-slate-100 pt-4">
+                      <a
+                        href="https://registrato.bcb.gov.br"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center gap-1.5 bg-brand-emerald-600 hover:bg-brand-emerald-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-md cursor-pointer"
+                      >
+                        Acessar Registrato <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={loggedIntoRegistrato}
+                          onChange={(e) => setLoggedIntoRegistrato(e.target.checked)}
+                          className="w-4.5 h-4.5 rounded text-brand-emerald-600 border-slate-300 focus:ring-brand-emerald-500 cursor-pointer"
+                        />
+                        <span className="text-xs text-slate-700 font-bold">
+                          Estou logado no Registrato.
+                        </span>
+                      </label>
+                    </div>
+
+                    <div className="flex justify-between items-center pt-2">
+                      <button
+                        onClick={() => setSubStep(1)}
+                        className="text-xs text-slate-550 hover:text-brand-petroleo font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                      >
+                        <ChevronLeft className="w-4.5 h-4.5" /> Voltar
+                      </button>
+                      <Button
+                        variant="primary"
+                        onClick={() => setSubStep(3)}
+                        disabled={!loggedIntoRegistrato}
+                        className="h-11 px-6 font-semibold"
+                      >
+                        Próximo Passo <ChevronRight className="w-4.5 h-4.5 ml-1" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Etapa 3 */}
+              {subStep === 3 && (
+                <div className="space-y-5 flex-grow flex flex-col justify-between">
+                  <div className="space-y-5">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-brand-emerald-50 p-3 rounded-xl border border-brand-emerald-100 text-brand-emerald-600">
+                        <FileText className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-bold text-brand-petroleo">Gerar Relatório de Empréstimos (SCR)</h2>
+                        <p className="text-slate-550 text-xs font-semibold">Gere o documento específico com o histórico detalhado dos seus créditos.</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      <div className="space-y-3 text-xs text-slate-700 font-semibold leading-relaxed">
+                        <p>No painel do Registrato do Banco Central:</p>
+                        <ol className="list-decimal pl-4 space-y-2">
+                          <li>Procure e clique no card de <strong>Empréstimos e Financiamentos</strong> (conhecido como SCR).</li>
+                          <li>Defina o período desejado (sugerimos selecionar os últimos meses/anos para capturar a evolução da dívida).</li>
+                          <li>Marque o checkbox de consentimento do BCB e clique no botão <strong>Gerar relatório</strong>.</li>
+                          <li>Aguarde o processamento e clique para baixar o <strong>PDF</strong>.</li>
+                        </ol>
+                      </div>
+
+                      {/* Mock Visual do SCR */}
+                      <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50 shadow-inner flex flex-col h-[180px]">
+                        {/* Browser header */}
+                        <div className="bg-slate-200 px-3 py-1.5 flex items-center gap-1.5 border-b border-slate-300">
+                          <div className="w-2.5 h-2.5 rounded-full bg-rose-400"></div>
+                          <div className="w-2.5 h-2.5 rounded-full bg-amber-400"></div>
+                          <div className="w-2.5 h-2.5 rounded-full bg-emerald-400"></div>
+                          <div className="ml-2 bg-white px-2 py-0.5 rounded text-[9px] text-slate-400 font-mono truncate w-40">
+                            registrato.bcb.gov.br
+                          </div>
+                        </div>
+                        {/* Browser Content */}
+                        <div className="p-3 flex-grow flex flex-col justify-between text-[10px] font-sans">
+                          <div className="border border-slate-200 bg-white p-2.5 rounded-lg shadow-sm flex items-center justify-between">
+                            <div className="space-y-1">
+                              <span className="font-bold text-slate-800">Empréstimos e Financiamentos (SCR)</span>
+                              <p className="text-[8px] text-slate-400">Consulte informações sobre seus empréstimos.</p>
+                            </div>
+                            <span className="bg-brand-emerald-50 border border-brand-emerald-100 text-brand-emerald-700 px-2 py-0.5 rounded-full font-bold text-[8px]">
+                              Consultar ➔
+                            </span>
+                          </div>
+                          
+                          <div className="bg-white border border-slate-200 p-2 rounded-lg space-y-1">
+                            <div className="flex items-center justify-between text-[8px] text-slate-400">
+                              <span>Período: Últimos 24 meses</span>
+                              <span className="font-bold text-brand-emerald-650">✓ Aceito Termos</span>
+                            </div>
+                            <div className="w-full bg-brand-emerald-600 hover:bg-brand-emerald-700 text-white font-bold text-[9px] py-1 rounded text-center cursor-default shadow-xs">
+                              Gerar Relatório (PDF)
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 pt-2">
+                    <div className="flex justify-end border-t border-slate-100 pt-4">
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={scrReportGenerated}
+                          onChange={(e) => setScrReportGenerated(e.target.checked)}
+                          className="w-4.5 h-4.5 rounded text-brand-emerald-600 border-slate-300 focus:ring-brand-emerald-500 cursor-pointer"
+                        />
+                        <span className="text-xs text-slate-700 font-bold">
+                          Já gerei o relatório SCR.
+                        </span>
+                      </label>
+                    </div>
+
+                    <div className="flex justify-between items-center pt-2">
+                      <button
+                        onClick={() => setSubStep(2)}
+                        className="text-xs text-slate-550 hover:text-brand-petroleo font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                      >
+                        <ChevronLeft className="w-4.5 h-4.5" /> Voltar
+                      </button>
+                      <Button
+                        variant="primary"
+                        onClick={() => setSubStep(4)}
+                        disabled={!scrReportGenerated}
+                        className="h-11 px-6 font-semibold"
+                      >
+                        Próximo Passo <ChevronRight className="w-4.5 h-4.5 ml-1" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Etapa 4 */}
+              {subStep === 4 && (
+                <div className="space-y-5 flex-grow flex flex-col justify-between">
+                  <div className="space-y-5">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-brand-emerald-50 p-3 rounded-xl border border-brand-emerald-100 text-brand-emerald-600">
+                        <Upload className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-bold text-brand-petroleo">Você já possui o arquivo PDF?</h2>
+                        <p className="text-slate-550 text-xs font-semibold">Confirme se o arquivo foi baixado para o seu dispositivo antes de prosseguir.</p>
+                      </div>
+                    </div>
+
+                    <div className="bg-brand-offwhite-100 border border-slate-200 p-6 rounded-2xl text-center space-y-3 max-w-lg mx-auto">
+                      <div className="w-12 h-12 rounded-full bg-brand-emerald-50 border border-brand-emerald-100 flex items-center justify-center text-brand-emerald-650 mx-auto">
+                        <FileText className="w-6 h-6" />
+                      </div>
+                      <h4 className="font-bold text-brand-petroleo text-sm">Pronto para o Envio</h4>
+                      <p className="text-xs text-slate-550 leading-relaxed font-semibold">
+                        Para iniciar a análise automatizada do Quita e obter seus relatórios de juros ou irregularidades, você precisará fazer o upload deste PDF na próxima seção.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 pt-2">
+                    <div className="flex justify-end border-t border-slate-100 pt-4">
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={pdfSavedOnDevice}
+                          onChange={(e) => setPdfSavedOnDevice(e.target.checked)}
+                          className="w-4.5 h-4.5 rounded text-brand-emerald-600 border-slate-300 focus:ring-brand-emerald-500 cursor-pointer"
+                        />
+                        <span className="text-xs text-slate-700 font-bold">
+                          O PDF do Registrato está salvo no meu dispositivo.
+                        </span>
+                      </label>
+                    </div>
+
+                    <div className="flex justify-between items-center pt-2">
+                      <button
+                        onClick={() => setSubStep(3)}
+                        className="text-xs text-slate-550 hover:text-brand-petroleo font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                      >
+                        <ChevronLeft className="w-4.5 h-4.5" /> Voltar
+                      </button>
+                      <Button
+                        variant="primary"
+                        onClick={() => updateState({ step: 2 })}
+                        disabled={!pdfSavedOnDevice}
+                        className="h-11 px-6 font-semibold"
+                      >
+                        Continuar para Upload <ChevronRight className="w-4.5 h-4.5 ml-1" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -695,81 +1032,322 @@ export default function WizardPage() {
           {/* STEP 3: Upload do PDF */}
           {state.step === 3 && (
             <div className="space-y-6">
-              <div className="flex items-center gap-3">
-                <div className="bg-brand-emerald-50 p-3 rounded-xl border border-brand-emerald-100">
-                  <Upload className="w-6 h-6 text-brand-emerald-650" />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-brand-petroleo">Faça Upload do PDF do Registrato</h2>
-                  <p className="text-slate-500 text-sm">Selecione o arquivo baixado do site do Banco Central.</p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                {uploadError && (
-                  <div className="bg-rose-50 border border-rose-200 text-rose-800 p-4 rounded-xl text-xs flex items-start gap-2">
-                    <AlertTriangle className="w-5 h-5 flex-shrink-0 text-rose-600" />
-                    <span>{uploadError}</span>
+              {uploadStage === "idle" && (
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-brand-emerald-50 p-3 rounded-xl border border-brand-emerald-100">
+                      <Upload className="w-6 h-6 text-brand-emerald-650" />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-bold text-brand-petroleo">Faça Upload do PDF do Registrato</h2>
+                      <p className="text-slate-550 text-sm">Selecione o arquivo baixado do site do Banco Central.</p>
+                    </div>
                   </div>
-                )}
 
-                <div className="border-2 border-dashed border-slate-200 hover:border-brand-emerald-500/50 rounded-2xl bg-brand-offwhite-100 p-8 text-center transition-all flex flex-col items-center justify-center min-h-[200px]">
-                  <Upload className="w-10 h-10 text-slate-400 mb-4" />
-                  <p className="text-sm text-brand-petroleo mb-2 font-semibold">
-                    Arraste o arquivo Registrato PDF ou clique abaixo
-                  </p>
-                  <p className="text-[11px] text-slate-500 mb-4">Apenas arquivos PDF são aceitos (max. 10MB)</p>
-                  
-                  <input
-                    type="file"
-                    accept=".pdf"
-                    onChange={handleFileChange}
-                    className="hidden"
-                    id="file-input"
-                  />
-                  <label
-                    htmlFor="file-input"
-                    className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-705 text-xs font-bold px-4 py-2.5 rounded-xl cursor-pointer transition-all shadow-sm"
-                  >
-                    Selecionar Arquivo
-                  </label>
+                  <div className="space-y-4">
+                    {uploadError && (
+                      <div className="bg-rose-50 border border-rose-200 text-rose-800 p-4 rounded-xl text-xs flex items-start gap-2">
+                        <AlertTriangle className="w-5 h-5 flex-shrink-0 text-rose-650" />
+                        <span>{uploadError}</span>
+                      </div>
+                    )}
 
-                  {selectedFile && (
-                    <div className="mt-4 text-sm text-brand-emerald-650 font-bold flex items-center gap-1.5">
-                      <FileCheck className="w-4.5 h-4.5" />
-                      {selectedFile.name}
+                    {!selectedFile ? (
+                      <div className="border-2 border-dashed border-slate-200 hover:border-brand-emerald-500/50 rounded-2xl bg-brand-offwhite-100 p-8 text-center transition-all flex flex-col items-center justify-center min-h-[220px]">
+                        <Upload className="w-10 h-10 text-slate-400 mb-4 animate-bounce" />
+                        <p className="text-sm text-brand-petroleo mb-2 font-semibold">
+                          Arraste o arquivo Registrato PDF ou clique abaixo
+                        </p>
+                        <p className="text-[11px] text-slate-500 mb-4">Apenas arquivos PDF são aceitos (max. 20MB)</p>
+                        
+                        <input
+                          type="file"
+                          accept=".pdf"
+                          onChange={handleFileChange}
+                          className="hidden"
+                          id="file-input"
+                        />
+                        <label
+                          htmlFor="file-input"
+                          className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-705 text-xs font-bold px-4 py-2.5 rounded-xl cursor-pointer transition-all shadow-sm"
+                        >
+                          Selecionar Arquivo
+                        </label>
+                      </div>
+                    ) : (
+                      /* Card de Validação Imediata */
+                      <div className="border border-slate-200 bg-white rounded-2xl p-5 shadow-sm space-y-4 max-w-md mx-auto">
+                        <div className="flex items-center justify-between">
+                          <span className={`text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1.5 border ${
+                            selectedFile.name.toLowerCase().endsWith(".pdf")
+                              ? "bg-emerald-50 text-brand-emerald-700 border-brand-emerald-100"
+                              : "bg-rose-50 text-rose-700 border-rose-100"
+                          }`}>
+                            {selectedFile.name.toLowerCase().endsWith(".pdf") ? (
+                              <>
+                                <CheckCircle className="w-3.5 h-3.5" />
+                                Arquivo recebido
+                              </>
+                            ) : (
+                              <>
+                                <AlertTriangle className="w-3.5 h-3.5 text-rose-650" />
+                                Arquivo inválido
+                              </>
+                            )}
+                          </span>
+                          <button
+                            onClick={() => setSelectedFile(null)}
+                            className="text-xs text-slate-500 hover:text-rose-650 transition-colors font-bold cursor-pointer"
+                          >
+                            Alterar arquivo
+                          </button>
+                        </div>
+
+                        <div className="space-y-2.5 text-xs">
+                          <div className="flex justify-between border-b border-slate-100 pb-2 font-semibold">
+                            <span className="text-slate-500">Nome:</span>
+                            <span className="text-brand-petroleo truncate max-w-[200px]" title={selectedFile.name}>
+                              {selectedFile.name}
+                            </span>
+                          </div>
+                          <div className="flex justify-between border-b border-slate-100 pb-2 font-semibold">
+                            <span className="text-slate-500">Tamanho:</span>
+                            <span className="text-brand-petroleo">
+                              {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
+                            </span>
+                          </div>
+                          <div className="flex justify-between font-semibold">
+                            <span className="text-slate-500">Tipo:</span>
+                            <span className={`font-bold ${
+                              selectedFile.name.toLowerCase().endsWith(".pdf")
+                                ? "text-brand-emerald-650"
+                                : "text-rose-600"
+                            }`}>
+                              {selectedFile.name.toLowerCase().endsWith(".pdf")
+                                ? "PDF válido"
+                                : "Não suportado (apenas PDF)"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex justify-between items-center pt-4">
+                    <button
+                      onClick={() => updateState({ step: 2 })}
+                      className="text-slate-555 hover:text-brand-petroleo font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      <ChevronLeft className="w-5 h-5" /> Voltar
+                    </button>
+                    <Button
+                      variant="primary"
+                      onClick={startUpload}
+                      disabled={!selectedFile || !selectedFile.name.toLowerCase().endsWith(".pdf") || uploadMutation.isPending}
+                    >
+                      Analisar Dívidas
+                      <ChevronRight className="w-5 h-5 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Estágio: Pre-Analyzing (Loading Profissional) */}
+              {uploadStage === "pre-analyzing" && (
+                <div className="space-y-6 max-w-md mx-auto py-6">
+                  <div className="text-center space-y-2">
+                    <div className="w-8 h-8 border-4 border-brand-emerald-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                    <h3 className="text-lg font-bold text-brand-petroleo">Analisando documento...</h3>
+                    <p className="text-xs text-slate-500">Estamos verificando a autenticidade e extraindo os dados.</p>
+                  </div>
+
+                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
+                    {/* Step 1: Arquivo recebido */}
+                    <div className="flex items-center justify-between text-xs font-semibold text-slate-650">
+                      <div className="flex items-center gap-2">
+                        <span className="text-brand-emerald-650">✓</span>
+                        <span>Arquivo recebido</span>
+                      </div>
+                      <span className="text-brand-emerald-650 text-[10px] font-bold">Concluído</span>
+                    </div>
+
+                    {/* Step 2: PDF validado */}
+                    <div className="flex items-center justify-between text-xs font-semibold text-slate-655">
+                      <div className="flex items-center gap-2">
+                        <span className="text-brand-emerald-650">✓</span>
+                        <span>PDF validado</span>
+                      </div>
+                      <span className="text-brand-emerald-650 text-[10px] font-bold">Concluído</span>
+                    </div>
+
+                    {/* Step 3: Extraindo instituições financeiras */}
+                    <div className="flex items-center justify-between text-xs font-semibold">
+                      <div className="flex items-center gap-2">
+                        <span className={loadingStep >= 3 ? "text-brand-emerald-650" : "text-slate-350"}>
+                          {loadingStep >= 3 ? "✓" : "⏳"}
+                        </span>
+                        <span className={loadingStep >= 3 ? "text-slate-800" : "text-slate-400"}>
+                          Extraindo instituições financeiras
+                        </span>
+                      </div>
+                      <span className={loadingStep >= 3 ? "text-brand-emerald-650 text-[10px] font-bold" : "text-slate-400 text-[10px]"}>
+                        {loadingStep >= 3 ? "Concluído" : "Aguardando"}
+                      </span>
+                    </div>
+
+                    {/* Step 4: Calculando indicadores */}
+                    <div className="flex items-center justify-between text-xs font-semibold">
+                      <div className="flex items-center gap-2">
+                        <span className={loadingStep >= 4 ? "text-brand-emerald-650" : "text-slate-350"}>
+                          {loadingStep >= 4 ? "✓" : "⏳"}
+                        </span>
+                        <span className={loadingStep >= 4 ? "text-slate-800" : "text-slate-400"}>
+                          Calculando indicadores
+                        </span>
+                      </div>
+                      <span className={loadingStep >= 4 ? "text-brand-emerald-650 text-[10px] font-bold" : "text-slate-400 text-[10px]"}>
+                        {loadingStep >= 4 ? "Concluído" : "Aguardando"}
+                      </span>
+                    </div>
+
+                    {/* Step 5: Gerando insights */}
+                    <div className="flex items-center justify-between text-xs font-semibold">
+                      <div className="flex items-center gap-2">
+                        <span className={loadingStep >= 5 ? "text-brand-emerald-650" : "text-slate-355"}>
+                          {loadingStep >= 5 ? "✓" : "⏳"}
+                        </span>
+                        <span className={loadingStep >= 5 ? "text-slate-800" : "text-slate-400"}>
+                          Gerando insights
+                        </span>
+                      </div>
+                      <span className={loadingStep >= 5 ? "text-brand-emerald-650 text-[10px] font-bold" : "text-slate-400 text-[10px]"}>
+                        {loadingStep >= 5 ? "Concluído" : "Aguardando"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Estágio: Result Success (Resultado da Extração) */}
+              {uploadStage === "result-success" && tempInsights && (
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-brand-emerald-50 p-3 rounded-xl border border-brand-emerald-100">
+                      <CheckCircle className="w-6 h-6 text-brand-emerald-600" />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-bold text-brand-petroleo">Análise Concluída</h2>
+                      <span className="text-xs font-bold bg-emerald-50 text-brand-emerald-700 border border-brand-emerald-100 px-2 py-0.5 rounded-full inline-flex items-center gap-1 mt-0.5">
+                        ✓ Relatório Registrato identificado
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl text-center">
+                      <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Instituições</span>
+                      <span className="text-lg font-extrabold text-brand-petroleo">{tempInsights.institutionsCount}</span>
+                    </div>
+                    <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl text-center">
+                      <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Operações</span>
+                      <span className="text-lg font-extrabold text-brand-petroleo">
+                        {tempInsights.institutions.reduce((acc: number, inst: any) => acc + (inst.operations || 1), 0)}
+                      </span>
+                    </div>
+                    <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl text-center">
+                      <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total em dívidas</span>
+                      <span className="text-sm font-extrabold text-brand-emerald-650 block mt-1">
+                        {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(tempInsights.totalAmount)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Maiores apontamentos */}
+                  <div className="bg-brand-offwhite-100 border border-slate-200 rounded-2xl p-5 space-y-3">
+                    <h4 className="text-xs font-bold text-brand-petroleo uppercase tracking-wider">Maiores apontamentos</h4>
+                    <div className="space-y-2">
+                      {[...(tempInsights.institutions || [])]
+                        .sort((a: any, b: any) => b.amount - a.amount)
+                        .slice(0, 3)
+                        .map((inst: any, idx: number) => (
+                          <div key={idx} className="flex justify-between items-center text-xs font-semibold bg-white p-3 rounded-xl border border-slate-100 shadow-xs">
+                            <span className="text-brand-petroleo font-bold">{inst.institution}</span>
+                            <span className="text-slate-700 font-extrabold">
+                              {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(inst.amount)}
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-4">
+                    <Button
+                      variant="primary"
+                      onClick={() => {
+                        updateState({
+                          originalDebts: tempDebts,
+                          adjustedDebts: JSON.parse(JSON.stringify(tempDebts)),
+                          step: 4,
+                        });
+                      }}
+                    >
+                      Ver meu painel
+                      <ChevronRight className="w-5 h-5 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Estágio: Result Failed (Caso Inválido) */}
+              {uploadStage === "result-failed" && (
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-rose-50 p-3 rounded-xl border border-rose-100">
+                      <AlertTriangle className="w-6 h-6 text-rose-650" />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-bold text-brand-petroleo">Não identificamos um relatório Registrato válido.</h2>
+                      <p className="text-xs text-rose-650 font-semibold">Infelizmente, o processamento automático não pôde ler as informações necessárias.</p>
+                    </div>
+                  </div>
+
+                  {uploadError && (
+                    <div className="bg-rose-50 border border-rose-100 text-rose-800 p-4 rounded-xl text-xs font-semibold">
+                      Detalhes do erro: {uploadError}
                     </div>
                   )}
-                </div>
 
-                {uploadProgress > 0 && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs text-slate-500">
-                      <span>Analisando relatório Registrato...</span>
-                      <span>{uploadProgress}%</span>
-                    </div>
-                    <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                      <div
-                        className="bg-brand-emerald-600 h-full transition-all duration-300"
-                        style={{ width: `${uploadProgress}%` }}
-                      ></div>
-                    </div>
+                  <div className="bg-brand-offwhite-100 border border-slate-200 p-5 rounded-2xl space-y-3 text-xs font-semibold text-slate-700">
+                    <h4 className="font-bold text-brand-petroleo uppercase tracking-wider text-[10px]">Motivos prováveis:</h4>
+                    <ul className="space-y-2 list-inside list-disc text-slate-600">
+                      <li>O documento enviado não contém a seção SCR (Empréstimos e Financiamentos) do Banco Central.</li>
+                      <li>O PDF não possui texto selecionável/legível (por exemplo, uma foto convertida em PDF).</li>
+                      <li>O arquivo enviado é um extrato de conta corrente comum, fatura de cartão ou outro tipo de documento.</li>
+                    </ul>
                   </div>
-                )}
-              </div>
 
-              <div className="flex justify-between items-center pt-4">
-                <button
-                  onClick={() => updateState({ step: 2 })}
-                  className="text-slate-555 hover:text-brand-petroleo font-semibold flex items-center gap-1 cursor-pointer transition-colors"
-                >
-                  <ChevronLeft className="w-5 h-5" /> Voltar
-                </button>
-                <Button variant="primary" onClick={startUpload} disabled={!selectedFile || uploadMutation.isPending}>
-                  {uploadMutation.isPending ? "Processando..." : "Analisar Dívidas"}
-                  <ChevronRight className="w-5 h-5 ml-1" />
-                </Button>
-              </div>
+                  <div className="flex justify-between items-center pt-4">
+                    <button
+                      onClick={() => updateState({ step: 2 })}
+                      className="text-slate-555 hover:text-brand-petroleo font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      <ChevronLeft className="w-5 h-5" /> Voltar
+                    </button>
+                    <Button
+                      variant="primary"
+                      onClick={() => {
+                        setSelectedFile(null);
+                        setTempInsights(null);
+                        setTempDebts([]);
+                        setUploadStage("idle");
+                        setUploadError(null);
+                      }}
+                    >
+                      Ver instruções novamente
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1164,9 +1742,9 @@ export default function WizardPage() {
               </div>
 
               <div className="space-y-2">
-                <h3 className="text-xl font-bold text-brand-petroleo">O assistente está estruturando seu manifesto</h3>
+                <h3 className="text-xl font-bold text-brand-petroleo">Gerando reclamação...</h3>
                 <p className="text-sm text-slate-500 max-w-md leading-relaxed font-semibold">
-                  Nosso assistente está analisando seu caso para redigir uma contestação personalizada e livre de clichês robotizados.
+                  Nosso assistente está estruturando seu manifesto regulatório com base nas normativas do Banco Central.
                 </p>
               </div>
 
@@ -1210,14 +1788,28 @@ export default function WizardPage() {
               <div className="space-y-3">
                 <div className="flex justify-between items-center text-xs text-slate-500 font-bold uppercase tracking-wider">
                   <span>Rascunho de Contestação — {state.selectedInstitution}</span>
-                  {generateMutation.isPending && <span className="text-brand-emerald-600">Regenerando...</span>}
+                  {regenerateMutation.isPending && (
+                    <span className="text-brand-emerald-600 flex items-center gap-1 font-semibold">
+                      <RefreshCw className="w-3 h-3 animate-spin" />
+                      Refinando texto com IA...
+                    </span>
+                  )}
                 </div>
 
-                <textarea
-                  value={complaintText}
-                  onChange={(e) => setComplaintText(e.target.value)}
-                  className="w-full h-[220px] bg-brand-offwhite-100 border border-slate-200 rounded-xl p-4 text-xs font-mono text-slate-700 focus:outline-none focus:ring-1 focus:ring-brand-emerald-500 leading-relaxed resize-none shadow-inner"
-                />
+                <div className="relative">
+                  <textarea
+                    value={complaintText}
+                    onChange={(e) => setComplaintText(e.target.value)}
+                    disabled={regenerateMutation.isPending}
+                    className="w-full h-[220px] bg-brand-offwhite-100 border border-slate-200 rounded-xl p-4 text-xs font-mono text-slate-705 focus:outline-none focus:ring-1 focus:ring-brand-emerald-500 leading-relaxed resize-none shadow-inner"
+                  />
+                  {regenerateMutation.isPending && (
+                    <div className="absolute inset-0 bg-white/70 backdrop-blur-xs flex flex-col items-center justify-center gap-2 rounded-xl">
+                      <div className="w-6 h-6 border-2 border-brand-emerald-600 border-t-transparent rounded-full animate-spin"></div>
+                      <span className="text-xs font-bold text-brand-emerald-700">Refinando texto com IA...</span>
+                    </div>
+                  )}
+                </div>
 
                 {state.generatedComplaint?.disclaimer && (
                   <ClarityCard

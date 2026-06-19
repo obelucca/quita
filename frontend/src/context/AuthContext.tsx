@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { User } from "@/types";
 import { authService } from "@/services/auth.service";
 import { LoginInput, RegisterInput } from "@/schemas";
+import * as authHelper from "@/lib/auth";
 
 interface AuthContextType {
   user: User | null;
@@ -41,7 +42,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     // Check for token on mount
-    const savedToken = localStorage.getItem("quita_token");
+    const savedToken = authHelper.getToken();
     if (savedToken) {
       const decoded = parseJwt(savedToken);
       if (decoded && decoded.exp * 1000 > Date.now()) {
@@ -54,11 +55,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       } else {
         // Token expired
-        localStorage.removeItem("quita_token");
-        localStorage.removeItem("quita_user_name");
+        authHelper.logout();
       }
     }
     setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      authHelper.logout();
+      setUser(null);
+      setToken(null);
+      if (typeof window !== "undefined") {
+        window.location.href = "/auth?expired=true";
+      }
+    };
+
+    window.addEventListener("unauthorized-api-call", handleUnauthorized);
+    return () => {
+      window.removeEventListener("unauthorized-api-call", handleUnauthorized);
+    };
   }, []);
 
   const login = async (data: LoginInput) => {
@@ -67,7 +83,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const response = await authService.login(data);
       const decoded = parseJwt(response.token);
       if (decoded) {
-        localStorage.setItem("quita_token", response.token);
+        authHelper.saveToken(response.token);
         // If name wasn't saved, use email prefix
         const name = localStorage.getItem("quita_user_name") || decoded.email.split("@")[0];
         setToken(response.token);
@@ -99,8 +115,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
-    localStorage.removeItem("quita_token");
-    localStorage.removeItem("quita_user_name");
+    authHelper.logout();
     setUser(null);
     setToken(null);
   };

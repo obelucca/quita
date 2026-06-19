@@ -1,0 +1,120 @@
+================================================================================
+QUITA API - ENDPOINTS REFERENCE
+================================================================================
+Este arquivo foi gerado para referência local e pode ser excluído posteriormente.
+Ele contém todos os endpoints expostos no backend e os requisitos de acesso de cada um.
+
+--------------------------------------------------------------------------------
+1. AUTENTICAÇÃO (Auth) - Todos os endpoints desta categoria são PÚBLICOS
+--------------------------------------------------------------------------------
+
+* POST /auth/register
+  - Descrição: Registra um novo usuário no sistema.
+  - Requisito de Acesso: Público (Sem Token)
+  - Content-Type: application/json
+  - Request Body (Exemplo):
+    {
+      "name": "Nome do Usuário",
+      "email": "usuario@exemplo.com",
+      "password": "senha_segura_aqui"
+    }
+
+* POST /auth/login
+  - Descrição: Realiza o login e retorna o token JWT para autenticar requisições futuras.
+  - Requisito de Acesso: Público (Sem Token)
+  - Content-Type: application/json
+  - Request Body (Exemplo):
+    {
+      "email": "usuario@exemplo.com",
+      "password": "senha_segura_aqui"
+    }
+  - Resposta (Sucesso): Retorna um token JWT.
+
+--------------------------------------------------------------------------------
+2. DOCUMENTOS (Documents) - Requer Autenticação (JWT)
+--------------------------------------------------------------------------------
+Todas as chamadas abaixo devem incluir o cabeçalho:
+Authorization: Bearer <seu_token_jwt>
+
+* POST /documents/upload
+  - Descrição: Envia o PDF do Registrato do Banco Central para o backend extrair as dívidas.
+  - Requisito de Acesso: Autenticado (JWT)
+  - Content-Type: multipart/form-data
+  - Parâmetro Multipart:
+    - name: "file" (Tipo: File / PDF)
+
+* GET /documents
+  - Descrição: Lista os documentos processados do usuário logado.
+  - Requisito de Acesso: Autenticado (JWT)
+
+* DELETE /documents/clear
+  - Descrição: Remove todos os documentos do usuário do servidor.
+  - Requisito de Acesso: Autenticado (JWT)
+
+--------------------------------------------------------------------------------
+3. INSIGHTS DE DÍVIDAS (Debts) - Requer Autenticação (JWT)
+--------------------------------------------------------------------------------
+Todas as chamadas abaixo devem incluir o cabeçalho:
+Authorization: Bearer <seu_token_jwt>
+
+* GET /debts/insights
+  - Descrição: Retorna análises e insights sobre as dívidas extraídas do Registrato.
+  - Requisito de Acesso: Autenticado (JWT)
+
+--------------------------------------------------------------------------------
+4. RECLAMAÇÕES (Complaints) - Requer Autenticação (JWT)
+--------------------------------------------------------------------------------
+Todas as chamadas abaixo devem incluir o cabeçalho:
+Authorization: Bearer <seu_token_jwt>
+
+* POST /complaints/generate
+  - Descrição: Cria/Gera uma nova petição/sugestão de reclamação regulatória usando IA.
+  - Requisito de Acesso: Autenticado (JWT)
+  - Content-Type: application/json
+  - Request Body (Exemplo):
+    {
+      "institution": "BANCO INTER S.A.",
+      "claimDetails": "Explicação detalhada dos abusos cometidos..."
+    }
+
+* GET /complaints
+  - Descrição: Retorna o histórico de reclamações geradas pelo usuário.
+  - Requisito de Acesso: Autenticado (JWT)
+
+* GET /complaints/{id}
+  - Descrição: Obtém detalhes de uma reclamação específica pelo ID (UUID).
+  - Requisito de Acesso: Autenticado (JWT)
+
+* POST /complaints/{id}/regenerate
+  - Descrição: Regenera ou refina o texto de uma reclamação existente.
+  - Requisito de Acesso: Autenticado (JWT)
+  - Content-Type: application/json
+  - Request Body (Opcional):
+    {
+      "institution": "BANCO INTER S.A.",
+      "claimDetails": "Novos detalhes adicionais para o refinamento da IA..."
+    }
+
+* GET /complaints/{id}/pdf
+  - Descrição: Faz o download da reclamação renderizada em PDF.
+  - Requisito de Acesso: Autenticado (JWT)
+  - Query Params (Opcionais - default em parênteses):
+    - showCover (false)
+    - showWatermark (true)
+    - showFooter (true)
+    - showDocId (true)
+    - showEditorialSeal (true)
+    - showHighlights (true)
+
+--------------------------------------------------------------------------------
+5. MONITORAMENTO E SAÚDE (Health/Actuator) - PÚBLICOS
+--------------------------------------------------------------------------------
+
+* GET /health
+  - Descrição: Verificação simples de status e atividade da API.
+  - Requisito de Acesso: Público (Sem Token)
+
+* GET /actuator/health
+  - Descrição: Healthcheck padrão utilizado pelo Railway e sistemas de monitoramento.
+  - Requisito de Acesso: Público (Sem Token)
+================================================================================

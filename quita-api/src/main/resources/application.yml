@@ -24,6 +24,9 @@ server:
 app:
   storage:
     upload-dir: ${UPLOAD_DIR:uploads}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+
 
 management:
   endpoints:

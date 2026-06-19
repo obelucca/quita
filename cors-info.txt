@@ -1,0 +1,117 @@
+===============================================================================
+RELATÓRIO DE CONFIGURAÇÃO DE CORS - BACKEND (QUITA-API)
+===============================================================================
+
+Este documento identifica os locais e blocos de código no backend (Spring Boot)
+que contêm configurações de CORS (Cross-Origin Resource Sharing), explica o que
+cada trecho faz e aponta o que é necessário ajustar para o ambiente de produção.
+
+-------------------------------------------------------------------------------
+1. LOCALIZAÇÃO E BLOCOS DE CÓDIGO RELACIONADOS A CORS
+-------------------------------------------------------------------------------
+
+Arquivo:
+c:\projetos\Quita\quita-api\src\main\java\com\quita\api\auth\security\SecurityConfig.java
+
+Blocos de Código:
+
+A) Importações Necessárias (Linhas 19-21)
+----------------------------------------
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+B) Habilitação no Filtro de Segurança (Linha 37)
+----------------------------------------
+No método `securityFilterChain`, o CORS é ativado usando a configuração padrão do Spring:
+```java
+http
+    .cors(Customizer.withDefaults())
+    // ... outras configurações (csrf, session, authorizeRequests)
+```
+Nota: O `Customizer.withDefaults()` instrui o Spring Security a procurar por um
+Bean do tipo `CorsConfigurationSource` no contexto da aplicação para aplicar as regras.
+
+C) Definição das Regras de CORS (Linhas 62-74)
+----------------------------------------
+O Bean `corsConfigurationSource` define a política de acessos:
+```java
+@Bean
+public CorsConfigurationSource corsConfigurationSource() {
+    CorsConfiguration configuration = new CorsConfiguration();
+    configuration.setAllowedOrigins(List.of("http://localhost:3000"));
+    configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+    configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+    configuration.setExposedHeaders(List.of("Authorization"));
+    configuration.setAllowCredentials(true);
+
+    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+    source.registerCorsConfiguration("/**", configuration);
+    return source;
+}
+```
+
+-------------------------------------------------------------------------------
+2. O QUE CADA CONFIGURAÇÃO SIGNIFICA E SUA NECESSIDADE
+-------------------------------------------------------------------------------
+
+* AllowedOrigins ("http://localhost:3000"):
+  Define quais domínios externos estão autorizados a fazer requisições para esta API.
+  Atualmente, apenas o frontend rodando localmente na porta 3000 tem permissão.
+
+* AllowedMethods ("GET", "POST", "PUT", "DELETE", "OPTIONS"):
+  Especifica quais métodos HTTP são permitidos ao acessar a API a partir de outra origem.
+  O método "OPTIONS" é essencial para requisições de preflight que os navegadores fazem.
+
+* AllowedHeaders ("Authorization", "Content-Type"):
+  Define quais cabeçalhos HTTP podem ser enviados na requisição pelo cliente (frontend).
+  Como a API usa autenticação JWT, "Authorization" é mandatório.
+
+* ExposedHeaders ("Authorization"):
+  Define quais cabeçalhos da resposta da API podem ser lidos pelo cliente. Útil se o
+  frontend precisar capturar tokens atualizados ou informações de cabeçalho retornadas.
+
+* AllowCredentials (true):
+  Permite que cookies de sessão, credenciais de autorização (como cabeçalhos Auth)
+  ou certificados SSL sejam enviados e processados nas requisições cross-origin.
+  ATENÇÃO: Quando esta flag está como `true`, a origem permitida NÃO pode ser "*" (coringa).
+  Ela precisa ser um domínio explícito.
+
+-------------------------------------------------------------------------------
+3. RECOMENDAÇÕES PARA PRODUÇÃO (DANGER ZONE & AJUSTES)
+-------------------------------------------------------------------------------
+
+Atualmente, a origem permitida está fixada (hardcoded) como "http://localhost:3000".
+Quando a aplicação for publicada em produção (ex: no Railway, Vercel ou outro serviço):
+
+1. O frontend terá um domínio diferente (ex: https://quita-app.vercel.app).
+2. Se a configuração não for atualizada, o navegador bloqueará as requisições
+   do frontend de produção para a API devido à política de CORS.
+
+Recomendação de Refatoração:
+---------------------------
+Para evitar ter que alterar o código Java toda vez que mudar de ambiente, recomenda-se
+externalizar as origens permitidas para o arquivo `application.yml` e usar uma variável
+de ambiente.
+
+Exemplo de modificação sugerida:
+
+Em `application.yml`:
+```yaml
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+```
+
+No código Java (`SecurityConfig.java`):
+```java
+@Value("${app.cors.allowed-origins}")
+private List<String> allowedOrigins;
+
+// E no método corsConfigurationSource():
+configuration.setAllowedOrigins(allowedOrigins);
+```
+
+Dessa forma, em produção, basta definir a variável de ambiente `CORS_ALLOWED_ORIGINS`
+com a URL do seu frontend de produção, sem precisar modificar ou recompilar o código.
+===============================================================================
