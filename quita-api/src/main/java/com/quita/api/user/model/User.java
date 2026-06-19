@@ -32,4 +32,13 @@ public class User {
 
     @Column(nullable = false)
     private LocalDateTime updatedAt;
+
+    @Builder.Default
+    @Column(name = "free_complaint_used", nullable = false)
+    private Boolean freeComplaintUsed = false;
+
+    @Builder.Default
+    @Column(name = "complaint_credits", nullable = false)
+    private Integer complaintCredits = 0;
 }
+

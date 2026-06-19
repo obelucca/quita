@@ -371,9 +371,12 @@ export default function WizardPage() {
         queryClient.invalidateQueries({ queryKey: ["complaints"] });
       });
     },
-    onError: () => {
+    onError: (err: any) => {
       transitionToStepWithDelay(8, {}, () => {
-        addToast("Erro ao estruturar reclamação com a IA. Tente novamente.", "error");
+        addToast(
+          err.data?.message || "Erro ao estruturar reclamação com a IA. Tente novamente.",
+          "error"
+        );
       });
     },
   });
@@ -387,9 +390,12 @@ export default function WizardPage() {
         setComplaintText(data.complaint);
       });
     },
-    onError: () => {
+    onError: (err: any) => {
       transitionToStepWithDelay(10, {}, () => {
-        addToast("Erro ao regenerar texto. Tente novamente.", "error");
+        addToast(
+          err.data?.message || "Erro ao regenerar texto. Tente novamente.",
+          "error"
+        );
       });
     },
   });

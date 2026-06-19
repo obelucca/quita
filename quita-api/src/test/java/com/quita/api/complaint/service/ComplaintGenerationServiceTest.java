@@ -10,6 +10,7 @@ import com.quita.api.llm.LLMClient;
 import com.quita.api.llm.PromptBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import com.quita.api.user.service.CreditService;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
@@ -38,6 +39,9 @@ class ComplaintGenerationServiceTest {
 
     @Mock
     private LLMClient llmClient;
+
+    @Mock
+    private CreditService creditService;
 
     @Spy
     private PromptBuilder promptBuilder;

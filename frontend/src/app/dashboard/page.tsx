@@ -7,6 +7,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { complaintService } from "@/services/complaint.service";
 import { debtService } from "@/services/debt.service";
 import { documentService } from "@/services/document.service";
+import { creditsService } from "@/services/credits.service";
+import { paymentService } from "@/services/payment.service";
 import {
   Plus,
   FileText,
@@ -26,6 +28,7 @@ import {
   RefreshCw,
   Copy,
   Lightbulb,
+  CreditCard,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -86,6 +89,23 @@ export default function DashboardPage() {
   const [isClearDocsModalOpen, setIsClearDocsModalOpen] = useState(false);
   const [selectedComplaintId, setSelectedComplaintId] = useState<string | null>(null);
   const [detailComplaintText, setDetailComplaintText] = useState("");
+  const [purchasePendingPackage, setPurchasePendingPackage] = useState<string | null>(null);
+
+  const handleBuyCredits = async (packageId: string) => {
+    setPurchasePendingPackage(packageId);
+    try {
+      const response = await paymentService.createCheckout(packageId);
+      if (response && response.checkoutUrl) {
+        window.location.href = response.checkoutUrl;
+      } else {
+        addToast("Não foi possível gerar o link de pagamento.", "error");
+      }
+    } catch (err: any) {
+      addToast(err.data?.message || "Erro ao iniciar compra de créditos.", "error");
+    } finally {
+      setPurchasePendingPackage(null);
+    }
+  };
 
   // Toast state
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -121,6 +141,13 @@ export default function DashboardPage() {
   const { data: documentsData, isLoading: loadingDocuments } = useQuery({
     queryKey: ["userDocuments"],
     queryFn: () => documentService.list(),
+    enabled: isAuthenticated,
+  });
+
+  // Fetch credits status
+  const { data: creditsData, isLoading: loadingCredits } = useQuery({
+    queryKey: ["userCredits"],
+    queryFn: () => creditsService.getCredits(),
     enabled: isAuthenticated,
   });
 
@@ -252,7 +279,7 @@ export default function DashboardPage() {
         
         {/* Welcome Section & Map Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
-          <div className="lg:col-span-7 flex flex-col justify-between bg-gradient-to-r from-white to-brand-emerald-50/10 border border-slate-200 p-6 sm:p-8 rounded-2xl shadow-sm gap-6">
+          <div className="lg:col-span-5 flex flex-col justify-between bg-gradient-to-r from-white to-brand-emerald-50/10 border border-slate-200 p-6 sm:p-8 rounded-2xl shadow-sm gap-6">
             <div className="space-y-2">
               <h1 className="text-2xl sm:text-3xl font-bold text-brand-petroleo tracking-tight">
                 Olá, {user.name.split(" ")[0]}!
@@ -270,7 +297,45 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="lg:col-span-5 border border-slate-200 rounded-2xl bg-white p-6 flex flex-col justify-between shadow-sm gap-4">
+          {/* Card Seus Créditos */}
+          <div className="lg:col-span-3 border border-slate-200 rounded-2xl bg-white p-6 flex flex-col justify-between shadow-sm gap-4">
+            <div className="space-y-1">
+              <h3 className="text-sm font-bold text-brand-petroleo flex items-center gap-1.5">
+                <CreditCard className="w-4 h-4 text-brand-emerald-600" />
+                Seus Créditos
+              </h3>
+              <p className="text-xs text-slate-500 font-semibold">Gerencie seus créditos para contestações.</p>
+            </div>
+            
+            {loadingCredits ? (
+              <div className="flex-grow flex items-center justify-center">
+                <div className="w-5 h-5 border-2 border-brand-emerald-600 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            ) : creditsData ? (
+              <div className="flex-grow flex flex-col justify-center space-y-3">
+                <div>
+                  <p className="text-xs font-bold text-slate-400 uppercase">Créditos disponíveis</p>
+                  <p className="text-3xl font-bold text-brand-petroleo">{creditsData.availableCredits}</p>
+                </div>
+                <div className="text-xs font-bold flex items-center gap-1.5">
+                  {creditsData.freeComplaintUsed ? (
+                    <span className="text-slate-500 flex items-center gap-1">
+                      <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                      Primeira contestação utilizada
+                    </span>
+                  ) : (
+                    <span className="text-brand-emerald-650 flex items-center gap-1 animate-pulse">
+                      ✨ Primeira contestação gratuita disponível
+                    </span>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="text-xs text-slate-400">Não foi possível carregar os créditos.</div>
+            )}
+          </div>
+
+          <div className="lg:col-span-4 border border-slate-200 rounded-2xl bg-white p-6 flex flex-col justify-between shadow-sm gap-4">
             <div className="space-y-1">
               <h3 className="text-sm font-bold text-brand-petroleo flex items-center gap-1.5">
                 <Compass className="w-4 h-4 text-brand-emerald-600" />
@@ -462,6 +527,104 @@ export default function DashboardPage() {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Adquirir Créditos Section */}
+        <div className="space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+            <div>
+              <h2 className="text-lg font-bold text-brand-petroleo flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-brand-emerald-600" />
+                Adquirir Créditos
+              </h2>
+              <p className="text-xs text-slate-500 font-semibold">Selecione o melhor pacote para iniciar suas contestações regulatórias.</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              {
+                id: "STARTER",
+                name: "Pacote Inicial",
+                credits: 3,
+                price: "R$ 19,90",
+                description: "Ideal para quem tem poucas dívidas para contestar.",
+                details: ["3 créditos para contestações", "Suporte padrão", "Geração via IA"],
+                badge: "Popular",
+                badgeClass: "bg-brand-emerald-50 text-brand-emerald-700 border-brand-emerald-100",
+              },
+              {
+                id: "INTERMEDIATE",
+                name: "Pacote Recomendado",
+                credits: 10,
+                price: "R$ 49,90",
+                description: "Excelente para limpar múltiplos apontamentos.",
+                details: ["10 créditos para contestações", "Suporte prioritário", "Geração via IA otimizada"],
+                badge: "Melhor Valor",
+                badgeClass: "bg-amber-50 text-amber-700 border-amber-100",
+              },
+              {
+                id: "PREMIUM",
+                name: "Pacote Premium",
+                credits: 25,
+                price: "R$ 99,90",
+                description: "Perfeito para consultores ou grandes volumes.",
+                details: ["25 créditos para contestações", "Suporte ultra-prioritário", "Análise avançada"],
+                badge: "Profissional",
+                badgeClass: "bg-blue-50 text-blue-700 border-blue-100",
+              },
+            ].map((pkg) => (
+              <Card key={pkg.id} className="bg-white border-slate-200 p-6 flex flex-col justify-between shadow-sm relative overflow-hidden group hover:border-brand-emerald-500/20 hover:shadow-md transition-all duration-300 rounded-2xl">
+                {pkg.badge && (
+                  <span className={`absolute top-3 right-3 text-[9px] font-bold px-2 py-0.5 rounded-full border ${pkg.badgeClass}`}>
+                    {pkg.badge}
+                  </span>
+                )}
+                
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="text-sm font-bold text-brand-petroleo">{pkg.name}</h4>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">{pkg.credits} Créditos</p>
+                  </div>
+
+                  <div>
+                    <span className="text-2xl font-black text-brand-petroleo">{pkg.price}</span>
+                  </div>
+
+                  <p className="text-xs text-slate-500 leading-relaxed font-semibold">{pkg.description}</p>
+
+                  <ul className="space-y-1.5 pt-2 text-[11px] text-slate-500 font-semibold border-t border-slate-100">
+                    {pkg.details.map((detail, idx) => (
+                      <li key={idx} className="flex items-center gap-1.5">
+                        <CheckCircle className="w-3.5 h-3.5 text-brand-emerald-600 flex-shrink-0" />
+                        {detail}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="pt-6">
+                  <Button
+                    onClick={() => handleBuyCredits(pkg.id)}
+                    disabled={purchasePendingPackage !== null}
+                    className="w-full bg-brand-petroleo hover:bg-slate-800 text-white rounded-xl h-10 font-semibold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    {purchasePendingPackage === pkg.id ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        Redirecionando...
+                      </>
+                    ) : (
+                      <>
+                        Comprar Agora
+                        <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </Card>
+            ))}
+          </div>
         </div>
 
         {/* Complaints History List */}

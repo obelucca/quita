@@ -17,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import com.quita.api.user.service.CreditService;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -41,6 +42,7 @@ public class ComplaintGenerationService {
     private final RegulatoryIssuePromptEnricher regulatoryIssuePromptEnricher;
     private final RegulatoryReasoningBuilder regulatoryReasoningBuilder;
     private final HumanComplaintBlueprint humanComplaintBlueprint;
+    private final CreditService creditService;
 
     @Value("${quita.llm.provider:GEMINI}")
     private String llmProvider;
@@ -58,7 +60,8 @@ public class ComplaintGenerationService {
             RegulatoryIssueDetector regulatoryIssueDetector,
             RegulatoryIssuePromptEnricher regulatoryIssuePromptEnricher,
             RegulatoryReasoningBuilder regulatoryReasoningBuilder,
-            HumanComplaintBlueprint humanComplaintBlueprint) {
+            HumanComplaintBlueprint humanComplaintBlueprint,
+            CreditService creditService) {
         this.complaintRepository = complaintRepository;
         this.debtRepository = debtRepository;
         this.llmClient = llmClient;
@@ -72,6 +75,7 @@ public class ComplaintGenerationService {
         this.regulatoryIssuePromptEnricher = regulatoryIssuePromptEnricher;
         this.regulatoryReasoningBuilder = regulatoryReasoningBuilder;
         this.humanComplaintBlueprint = humanComplaintBlueprint;
+        this.creditService = creditService;
     }
 
     private static final String JURIDICAL_DISCLAIMER =
@@ -99,6 +103,8 @@ public class ComplaintGenerationService {
 
     @Transactional
     public ComplaintResponse generate(UUID userId, ComplaintGenerationRequest request, boolean allowFallback) {
+        creditService.consumeCredit(userId);
+
         // Find user debts for this institution
         List<Debt> userDebts = debtRepository.findAllByUserId(userId);
         List<Debt> instDebts = userDebts.stream()

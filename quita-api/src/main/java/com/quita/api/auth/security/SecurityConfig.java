@@ -56,6 +56,7 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/auth/register").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/auth/login").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/payments/webhook").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

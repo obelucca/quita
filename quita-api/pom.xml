@@ -122,6 +122,17 @@
 			<artifactId>pdfbox</artifactId>
 			<version>3.0.7</version>
 		</dependency>
+		<dependency>
+			<groupId>com.mercadopago</groupId>
+			<artifactId>sdk-java</artifactId>
+			<version>2.1.7</version>
+			<exclusions>
+				<exclusion>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-javadoc-plugin</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
 	</dependencies>
 
 	<build>
@@ -153,6 +164,7 @@
 								<path>
 									<groupId>org.projectlombok</groupId>
 									<artifactId>lombok</artifactId>
+									<version>1.18.46</version>
 								</path>
 							</annotationProcessorPaths>
 						</configuration>
@@ -168,6 +180,7 @@
 								<path>
 									<groupId>org.projectlombok</groupId>
 									<artifactId>lombok</artifactId>
+									<version>1.18.46</version>
 								</path>
 							</annotationProcessorPaths>
 						</configuration>
