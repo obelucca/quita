@@ -380,4 +380,59 @@ class ComplaintGenerationServiceTest {
         verify(narrativeVariationEngine).selectOpening(eq(userId), eq(institution), any(), eq(2));
         verify(narrativeVariationEngine).selectClosing(eq(userId), eq(institution), any(), eq(2));
     }
+
+    @Test
+    void shouldValidateCreditsBeforeGenerationAndConsumeAfterSuccess() {
+        ComplaintGenerationRequest request = ComplaintGenerationRequest.builder()
+                .institution(institution)
+                .currentDebtValue(null)
+                .build();
+
+        when(debtRepository.findAllByUserId(userId)).thenReturn(Collections.emptyList());
+        when(complaintRepository.findMaxVersionByUserIdAndInstitution(userId, institution)).thenReturn(0);
+        setupMockLlmWithSuccess();
+
+        service.generate(userId, request);
+
+        org.mockito.InOrder inOrder = inOrder(creditService, llmClient, complaintRepository);
+        inOrder.verify(creditService).validateCanGenerate(userId);
+        inOrder.verify(llmClient, atLeastOnce()).generate(anyString());
+        inOrder.verify(complaintRepository).save(any(Complaint.class));
+        inOrder.verify(creditService).consumeCredit(userId);
+    }
+
+    @Test
+    void shouldNotConsumeCreditIfLlmGenerationFailsWithoutFallback() {
+        ComplaintGenerationRequest request = ComplaintGenerationRequest.builder()
+                .institution(institution)
+                .currentDebtValue(null)
+                .build();
+
+        when(debtRepository.findAllByUserId(userId)).thenReturn(Collections.emptyList());
+        when(complaintRepository.findMaxVersionByUserIdAndInstitution(userId, institution)).thenReturn(0);
+        when(llmClient.generate(anyString())).thenThrow(new RuntimeException("LLM Failure"));
+
+        assertThrows(RuntimeException.class, () -> service.generate(userId, request, false));
+
+        verify(creditService).validateCanGenerate(userId);
+        verify(creditService, never()).consumeCredit(userId);
+    }
+
+    @Test
+    void shouldNotConsumeCreditIfRepositorySaveFails() {
+        ComplaintGenerationRequest request = ComplaintGenerationRequest.builder()
+                .institution(institution)
+                .currentDebtValue(null)
+                .build();
+
+        when(debtRepository.findAllByUserId(userId)).thenReturn(Collections.emptyList());
+        when(complaintRepository.findMaxVersionByUserIdAndInstitution(userId, institution)).thenReturn(0);
+        setupMockLlmWithSuccess();
+        when(complaintRepository.save(any(Complaint.class))).thenThrow(new RuntimeException("Database error"));
+
+        assertThrows(RuntimeException.class, () -> service.generate(userId, request));
+
+        verify(creditService).validateCanGenerate(userId);
+        verify(creditService, never()).consumeCredit(userId);
+    }
 }

@@ -103,7 +103,7 @@ public class ComplaintGenerationService {
 
     @Transactional
     public ComplaintResponse generate(UUID userId, ComplaintGenerationRequest request, boolean allowFallback) {
-        creditService.consumeCredit(userId);
+        creditService.validateCanGenerate(userId);
 
         // Find user debts for this institution
         List<Debt> userDebts = debtRepository.findAllByUserId(userId);
@@ -232,6 +232,7 @@ public class ComplaintGenerationService {
                 .build();
 
         complaintRepository.save(complaint);
+        creditService.consumeCredit(userId);
 
         return mapToResponse(complaint, message, issueExplanations);
     }

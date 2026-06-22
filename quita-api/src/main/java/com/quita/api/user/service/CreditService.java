@@ -28,6 +28,20 @@ public class CreditService {
                 .build();
     }
 
+    @Transactional(readOnly = true)
+    public void validateCanGenerate(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        if (!user.getFreeComplaintUsed()) {
+            return;
+        }
+
+        if (user.getComplaintCredits() <= 0) {
+            throw new InsufficientCreditsException("Você já utilizou sua contestação gratuita. Adquira créditos para continuar.");
+        }
+    }
+
     @Transactional
     public void consumeCredit(UUID userId) {
         User user = userRepository.findById(userId)

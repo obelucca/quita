@@ -113,4 +113,31 @@ class CreditServiceTest {
         User savedUser = captor.getValue();
         assertEquals(5, savedUser.getComplaintCredits());
     }
+
+    @Test
+    void shouldPassValidationWhenFreeCreditAvailable() {
+        user.setFreeComplaintUsed(false);
+        user.setComplaintCredits(0);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+
+        assertDoesNotThrow(() -> creditService.validateCanGenerate(userId));
+    }
+
+    @Test
+    void shouldPassValidationWhenPaidCreditsAvailable() {
+        user.setFreeComplaintUsed(true);
+        user.setComplaintCredits(3);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+
+        assertDoesNotThrow(() -> creditService.validateCanGenerate(userId));
+    }
+
+    @Test
+    void shouldThrowExceptionWhenNoCreditsAndFreeUsed() {
+        user.setFreeComplaintUsed(true);
+        user.setComplaintCredits(0);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+
+        assertThrows(InsufficientCreditsException.class, () -> creditService.validateCanGenerate(userId));
+    }
 }
