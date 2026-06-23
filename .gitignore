@@ -66,3 +66,7 @@ coverage/
 # Generated files
 # =========================
 *.class
+
+# Custom project context file
+contexto_projeto.txt
+integracao_mercado_pago.txt

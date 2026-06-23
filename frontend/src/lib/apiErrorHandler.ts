@@ -7,6 +7,9 @@ export function handleApiError(error: any): string {
   if (typeof error.status === "number") {
     switch (error.status) {
       case 401:
+        if (error.message && error.message !== "Unauthorized" && !error.message.startsWith("Request failed")) {
+          return error.message;
+        }
         return "Sua sessão expirou. Faça login novamente.";
       case 403:
         return "Você não possui permissão para executar esta ação.";

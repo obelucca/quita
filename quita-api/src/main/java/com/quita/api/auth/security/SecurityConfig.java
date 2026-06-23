@@ -54,6 +54,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/health").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
+                        .requestMatchers("/error").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/auth/register").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/auth/login").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/payments/webhook").permitAll()

@@ -200,7 +200,7 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(loginRequest)))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.message", is("Invalid credentials")));
+                .andExpect(jsonPath("$.message", is("Senha incorreta.")));
     }
 
     @Test
@@ -214,6 +214,6 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(loginRequest)))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.message", is("Invalid credentials")));
+                .andExpect(jsonPath("$.message", is("Usuário não cadastrado.")));
     }
 }

@@ -51,12 +51,12 @@ public class AuthService {
     }
 
     public LoginResponse login(LoginRequest request) {
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new UsernameNotFoundException("Usuário não cadastrado."));
+
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
         );
-
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + request.getEmail()));
 
         String token = jwtService.generateToken(user.getId().toString(), user.getEmail());
 

@@ -39,14 +39,22 @@ public class GlobalExceptionHandler {
                 .body(new ValidationErrorResponse("Validation error", errors));
     }
 
-    @ExceptionHandler({
-            org.springframework.security.authentication.BadCredentialsException.class,
-            org.springframework.security.core.userdetails.UsernameNotFoundException.class
-    })
-    public ResponseEntity<ErrorResponse> handleAuthenticationExceptions() {
+    @ExceptionHandler(org.springframework.security.authentication.BadCredentialsException.class)
+    public ResponseEntity<ErrorResponse> handleBadCredentials(org.springframework.security.authentication.BadCredentialsException ex) {
         return ResponseEntity
                 .status(HttpStatus.UNAUTHORIZED)
-                .body(new ErrorResponse("Invalid credentials"));
+                .body(new ErrorResponse("Senha incorreta."));
+    }
+
+    @ExceptionHandler(org.springframework.security.core.userdetails.UsernameNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleUsernameNotFound(org.springframework.security.core.userdetails.UsernameNotFoundException ex) {
+        String msg = ex.getMessage();
+        if (msg == null || msg.startsWith("User not found with email:")) {
+            msg = "Usuário não encontrado.";
+        }
+        return ResponseEntity
+                .status(HttpStatus.UNAUTHORIZED)
+                .body(new ErrorResponse(msg));
     }
 
     @ExceptionHandler(InvalidFileTypeException.class)

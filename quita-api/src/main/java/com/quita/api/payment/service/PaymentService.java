@@ -44,6 +44,9 @@ public class PaymentService {
     @Value("${app.mercadopago.webhook-secret:TEST-XXXXXXXX}")
     private String webhookSecret;
 
+    @Value("${app.mercadopago.access-token:TEST-XXXXXXXX}")
+    private String accessToken;
+
     @Transactional(readOnly = true)
     public List<PaymentResponse> getUserPayments(UUID userId) {
         return paymentRepository.findAllByUserIdOrderByCreatedAtDesc(userId).stream()
@@ -90,6 +93,31 @@ public class PaymentService {
 
         UUID paymentId = UUID.randomUUID();
 
+        if ("TEST-XXXXXXXX".equalsIgnoreCase(accessToken)) {
+            log.info("[MOCK MODE] Criação de Checkout - UserId: {}, Package: {}, PreferenceId: MOCK-PREF-{}, ExternalReference: {}",
+                    userId, packageId, paymentId, paymentId);
+
+            Payment payment = Payment.builder()
+                    .id(paymentId)
+                    .userId(userId)
+                    .mercadopagoPreferenceId("MOCK-PREF-" + paymentId)
+                    .packageName(packageName)
+                    .creditsQuantity(creditsQuantity)
+                    .amount(amount)
+                    .status(PaymentStatus.PENDING)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+
+            paymentRepository.save(payment);
+
+            String mockUrl = String.format("%s/payment/success?payment_id=MOCK-PAY:%s:approved&status=approved&external_reference=%s&preference_id=MOCK-PREF-%s",
+                    frontendUrl, paymentId, paymentId, paymentId);
+
+            return CheckoutResponse.builder()
+                    .checkoutUrl(mockUrl)
+                    .build();
+        }
+
         try {
             // Configura os Back URLs de retorno para o frontend
             PreferenceBackUrlsRequest backUrls = PreferenceBackUrlsRequest.builder()
@@ -132,12 +160,19 @@ public class PaymentService {
 
             paymentRepository.save(payment);
 
+            log.info("Criação de Checkout - UserId: {}, Package: {}, PreferenceId: {}, ExternalReference: {}",
+                    userId, packageId, preference.getId(), paymentId);
+
             return CheckoutResponse.builder()
                     .checkoutUrl(preference.getInitPoint())
                     .build();
 
-        } catch (MPException | MPApiException e) {
-            log.error("Erro ao criar preferência de checkout no Mercado Pago", e);
+        } catch (MPApiException e) {
+            log.error("Falha no Mercado Pago - Erro Mercado Pago ao criar checkout. Status: {}, Conteudo: {}",
+                    e.getApiResponse().getStatusCode(), e.getApiResponse().getContent(), e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Erro ao processar checkout");
+        } catch (MPException e) {
+            log.error("Falha no Mercado Pago - Timeout ou Conexão ao criar checkout: {}", e.getMessage(), e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Erro ao processar checkout");
         }
     }
@@ -151,8 +186,61 @@ public class PaymentService {
 
         // Validação da assinatura
         if (!verifySignature(dataId, xRequestId, xSignature, webhookSecret)) {
-            log.error("Falha na validação de assinatura do webhook do Mercado Pago");
+            log.error("Falha no webhook - Assinatura inválida. RequestId: {}, Signature: {}", xRequestId, xSignature);
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Assinatura inválida");
+        }
+
+        if ("TEST-XXXXXXXX".equalsIgnoreCase(accessToken) || (dataId != null && (dataId.startsWith("MOCK-PAY-") || dataId.startsWith("MOCK-PAY:")))) {
+            String[] parts = dataId.contains(":") ? dataId.split(":") : dataId.split("-");
+            if (parts.length >= 3) {
+                // If it contains colons, parts are ["MOCK-PAY", "<uuid>", "<status>"] -> indices 1 and 2
+                // If it is legacy split by hyphen, parts are ["MOCK", "PAY", "<uuid-part1>", ... "<status>"] -> fallback
+                String localPaymentIdStr = dataId.contains(":") ? parts[1] : parts[2];
+                String mockStatus = dataId.contains(":") ? parts[2] : parts[parts.length - 1];
+
+                UUID localPaymentId = UUID.fromString(localPaymentIdStr);
+                Payment payment = paymentRepository.findById(localPaymentId)
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pagamento local não encontrado"));
+
+                log.info("[MOCK MODE] Processando webhook para pagamento {}. Status MP: {}", payment.getId(), mockStatus);
+
+                if (PaymentStatus.APPROVED.equals(payment.getStatus())) {
+                    log.info("Webhook duplicado ignorado - PaymentId: {}, Status: APPROVED, UserId: {}, Créditos concedidos: 0",
+                            payment.getId(), payment.getUserId());
+                    return;
+                }
+
+                if (PaymentStatus.REJECTED.equals(payment.getStatus()) || PaymentStatus.CANCELLED.equals(payment.getStatus())) {
+                    log.info("Webhook duplicado ignorado - PaymentId: {}, Status: {}, UserId: {}, Créditos concedidos: 0",
+                            payment.getId(), payment.getStatus(), payment.getUserId());
+                    return;
+                }
+
+                payment.setMercadopagoPaymentId(dataId);
+
+                if ("approved".equalsIgnoreCase(mockStatus)) {
+                    payment.setStatus(PaymentStatus.APPROVED);
+                    payment.setApprovedAt(LocalDateTime.now());
+                    paymentRepository.save(payment);
+                    creditService.addCredits(payment.getUserId(), payment.getCreditsQuantity());
+                    log.info("Webhook - PaymentId: {}, Status: APPROVED, UserId: {}, Créditos concedidos: {}",
+                            payment.getId(), payment.getStatus(), payment.getUserId(), payment.getCreditsQuantity());
+                } else if ("rejected".equalsIgnoreCase(mockStatus)) {
+                    payment.setStatus(PaymentStatus.REJECTED);
+                    paymentRepository.save(payment);
+                    log.info("Webhook - PaymentId: {}, Status: REJECTED, UserId: {}, Créditos concedidos: 0",
+                            payment.getId(), payment.getUserId());
+                } else if ("cancelled".equalsIgnoreCase(mockStatus)) {
+                    payment.setStatus(PaymentStatus.CANCELLED);
+                    paymentRepository.save(payment);
+                    log.info("Webhook - PaymentId: {}, Status: CANCELLED, UserId: {}, Créditos concedidos: 0",
+                            payment.getId(), payment.getUserId());
+                } else {
+                    log.info("Webhook - PaymentId: {}, Status: PENDING (MP: {}), UserId: {}, Créditos concedidos: 0",
+                            payment.getId(), mockStatus, payment.getUserId());
+                }
+                return;
+            }
         }
 
         try {
@@ -173,8 +261,15 @@ public class PaymentService {
             String mpStatus = mpPayment.getStatus();
             log.info("Processando webhook para pagamento {}. Status MP: {}", payment.getId(), mpStatus);
 
-            if (PaymentStatus.APPROVED.name().equalsIgnoreCase(payment.getStatus().name())) {
-                log.info("Pagamento {} já está aprovado, ignorando processamento duplicado", payment.getId());
+            if (PaymentStatus.APPROVED.equals(payment.getStatus())) {
+                log.info("Webhook duplicado ignorado - PaymentId: {}, Status: APPROVED, UserId: {}, Créditos concedidos: 0",
+                        payment.getId(), payment.getUserId());
+                return;
+            }
+
+            if (PaymentStatus.REJECTED.equals(payment.getStatus()) || PaymentStatus.CANCELLED.equals(payment.getStatus())) {
+                log.info("Webhook duplicado ignorado - PaymentId: {}, Status: {}, UserId: {}, Créditos concedidos: 0",
+                        payment.getId(), payment.getStatus(), payment.getUserId());
                 return;
             }
 
@@ -187,19 +282,32 @@ public class PaymentService {
 
                 // Credita o usuário com a quantidade de créditos do pacote
                 creditService.addCredits(payment.getUserId(), payment.getCreditsQuantity());
-                log.info("Pagamento {} aprovado. {} créditos adicionados ao usuário {}", payment.getId(), payment.getCreditsQuantity(), payment.getUserId());
+                log.info("Webhook - PaymentId: {}, Status: APPROVED, UserId: {}, Créditos concedidos: {}",
+                        payment.getId(), payment.getStatus(), payment.getUserId(), payment.getCreditsQuantity());
             } else if ("rejected".equalsIgnoreCase(mpStatus)) {
                 payment.setStatus(PaymentStatus.REJECTED);
                 paymentRepository.save(payment);
-                log.info("Pagamento {} rejeitado pelo Mercado Pago", payment.getId());
+                log.info("Webhook - PaymentId: {}, Status: REJECTED, UserId: {}, Créditos concedidos: 0",
+                        payment.getId(), payment.getUserId());
             } else if ("cancelled".equalsIgnoreCase(mpStatus)) {
                 payment.setStatus(PaymentStatus.CANCELLED);
                 paymentRepository.save(payment);
-                log.info("Pagamento {} cancelado pelo Mercado Pago", payment.getId());
+                log.info("Webhook - PaymentId: {}, Status: CANCELLED, UserId: {}, Créditos concedidos: 0",
+                        payment.getId(), payment.getUserId());
+            } else {
+                log.info("Webhook - PaymentId: {}, Status: PENDING (MP: {}), UserId: {}, Créditos concedidos: 0",
+                        payment.getId(), mpStatus, payment.getUserId());
             }
 
+        } catch (MPApiException e) {
+            log.error("Falha no webhook - Erro Mercado Pago. Status: {}, Conteudo: {}",
+                    e.getApiResponse().getStatusCode(), e.getApiResponse().getContent(), e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Erro ao processar notificação");
+        } catch (MPException e) {
+            log.error("Falha no webhook - Timeout ou Conexão com Mercado Pago: {}", e.getMessage(), e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Erro ao processar notificação");
         } catch (Exception e) {
-            log.error("Erro ao processar webhook do Mercado Pago", e);
+            log.error("Falha no webhook - Falha de processamento: {}", e.getMessage(), e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Erro ao processar notificação");
         }
     }
@@ -249,7 +357,10 @@ public class PaymentService {
                 }
                 hexString.append(hex);
             }
-            return hexString.toString().equalsIgnoreCase(v1);
+
+            byte[] expectedBytes = hexString.toString().toLowerCase().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            byte[] providedBytes = v1.toLowerCase().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            return java.security.MessageDigest.isEqual(expectedBytes, providedBytes);
         } catch (Exception e) {
             log.error("Erro ao validar assinatura do webhook", e);
             return false;

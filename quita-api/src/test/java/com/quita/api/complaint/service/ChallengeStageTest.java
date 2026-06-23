@@ -35,6 +35,9 @@ public class ChallengeStageTest {
     @Mock
     private LLMClient llmClient;
 
+    @Mock
+    private com.quita.api.user.service.CreditService creditService;
+
     @Spy
     private PromptBuilder promptBuilder = new PromptBuilder();
 

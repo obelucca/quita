@@ -189,4 +189,93 @@ class PaymentServiceTest {
         assertEquals(1, response.size());
         assertEquals("Pacote Inicial (3 Créditos)", response.get(0).getPackageName());
     }
+
+    @Test
+    void processWebhook_InvalidSignatureThrowsException() {
+        ReflectionTestUtils.setField(paymentService, "webhookSecret", "REAL-SECRET");
+        assertThrows(ResponseStatusException.class, () -> {
+            paymentService.processWebhook("ts=123,v1=wrongsignature", "x-request-id-123", "123456789", "payment.updated");
+        });
+    }
+
+    @Test
+    void processWebhook_MPApiExceptionThrowsException() throws MPException, MPApiException {
+        doReturn(paymentClient).when(paymentService).getPaymentClient();
+        
+        com.mercadopago.net.MPResponse mockApiResponse = mock(com.mercadopago.net.MPResponse.class);
+        when(mockApiResponse.getStatusCode()).thenReturn(400);
+        when(mockApiResponse.getContent()).thenReturn("Bad Request");
+        
+        MPApiException mpApiException = new MPApiException("MP API Error", mockApiResponse);
+        when(paymentClient.get(123456789L)).thenThrow(mpApiException);
+
+        assertThrows(ResponseStatusException.class, () -> {
+            paymentService.processWebhook(null, null, "123456789", "payment.updated");
+        });
+    }
+
+    @Test
+    void processWebhook_MPExceptionThrowsException() throws MPException, MPApiException {
+        doReturn(paymentClient).when(paymentService).getPaymentClient();
+        
+        MPException mpException = new MPException("Timeout");
+        when(paymentClient.get(123456789L)).thenThrow(mpException);
+
+        assertThrows(ResponseStatusException.class, () -> {
+            paymentService.processWebhook(null, null, "123456789", "payment.updated");
+        });
+    }
+
+    @Test
+    void processWebhook_CancelledPaymentUpdatesStatus() throws MPException, MPApiException {
+        doReturn(paymentClient).when(paymentService).getPaymentClient();
+        UUID paymentId = UUID.randomUUID();
+        Payment payment = Payment.builder()
+                .id(paymentId)
+                .userId(userId)
+                .creditsQuantity(3)
+                .status(PaymentStatus.PENDING)
+                .build();
+
+        when(paymentRepository.findById(paymentId)).thenReturn(Optional.of(payment));
+
+        com.mercadopago.resources.payment.Payment mpPayment = mock(com.mercadopago.resources.payment.Payment.class);
+        when(mpPayment.getStatus()).thenReturn("cancelled");
+        when(mpPayment.getExternalReference()).thenReturn(paymentId.toString());
+
+        when(paymentClient.get(123456789L)).thenReturn(mpPayment);
+
+        paymentService.processWebhook(null, null, "123456789", "payment.updated");
+
+        assertEquals(PaymentStatus.CANCELLED, payment.getStatus());
+        verify(paymentRepository, times(1)).save(payment);
+        verify(creditService, never()).addCredits(any(), anyInt());
+    }
+
+    @Test
+    void processWebhook_PendingPaymentStatusLogs() throws MPException, MPApiException {
+        doReturn(paymentClient).when(paymentService).getPaymentClient();
+        UUID paymentId = UUID.randomUUID();
+        Payment payment = Payment.builder()
+                .id(paymentId)
+                .userId(userId)
+                .creditsQuantity(3)
+                .status(PaymentStatus.PENDING)
+                .build();
+
+        when(paymentRepository.findById(paymentId)).thenReturn(Optional.of(payment));
+
+        com.mercadopago.resources.payment.Payment mpPayment = mock(com.mercadopago.resources.payment.Payment.class);
+        when(mpPayment.getStatus()).thenReturn("in_process");
+        when(mpPayment.getExternalReference()).thenReturn(paymentId.toString());
+
+        when(paymentClient.get(123456789L)).thenReturn(mpPayment);
+
+        paymentService.processWebhook(null, null, "123456789", "payment.updated");
+
+        // Should keep status as PENDING
+        assertEquals(PaymentStatus.PENDING, payment.getStatus());
+        verify(paymentRepository, never()).save(payment);
+        verify(creditService, never()).addCredits(any(), anyInt());
+    }
 }
