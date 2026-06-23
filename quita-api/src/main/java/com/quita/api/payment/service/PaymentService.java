@@ -93,6 +93,8 @@ public class PaymentService {
 
         UUID paymentId = UUID.randomUUID();
 
+        log.info("Frontend URL configurada: {}", frontendUrl);
+
         if ("TEST-XXXXXXXX".equalsIgnoreCase(accessToken)) {
             log.info("[MOCK MODE] Criação de Checkout - UserId: {}, Package: {}, PreferenceId: MOCK-PREF-{}, ExternalReference: {}",
                     userId, packageId, paymentId, paymentId);
