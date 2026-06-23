@@ -75,17 +75,17 @@ public class PaymentService {
             case "STARTER":
                 packageName = "Pacote Inicial (3 Créditos)";
                 creditsQuantity = 3;
-                amount = new BigDecimal("1.00");
+                amount = new BigDecimal("19.90");
                 break;
             case "INTERMEDIATE":
                 packageName = "Pacote Intermediário (10 Créditos)";
                 creditsQuantity = 10;
-                amount = new BigDecimal("1.00");
+                amount = new BigDecimal("49.90");
                 break;
             case "PREMIUM":
                 packageName = "Pacote Premium (25 Créditos)";
                 creditsQuantity = 25;
-                amount = new BigDecimal("1.00");
+                amount = new BigDecimal("99.90");
                 break;
             default:
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pacote inválido");
