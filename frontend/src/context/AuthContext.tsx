@@ -52,6 +52,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           id: decoded.sub,
           email: decoded.email,
           name: savedName,
+          role: decoded.role || "USER",
         });
       } else {
         // Token expired
@@ -91,6 +92,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           id: decoded.sub,
           email: decoded.email,
           name: name,
+          role: decoded.role || "USER",
         });
       } else {
         throw new Error("Token JWT inválido recebido do servidor.");

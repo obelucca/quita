@@ -58,6 +58,7 @@ public class SecurityConfig {
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/auth/register").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/auth/login").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/payments/webhook").permitAll()
+                        .requestMatchers("/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

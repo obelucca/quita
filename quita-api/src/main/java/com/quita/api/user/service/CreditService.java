@@ -59,10 +59,13 @@ public class CreditService {
     }
 
     @Transactional
-    public void addCredits(UUID userId, int credits) {
+    public com.quita.api.user.dto.CreditAllocationResult addCredits(UUID userId, int credits) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
-        user.setComplaintCredits(user.getComplaintCredits() + credits);
+        int balanceBefore = user.getComplaintCredits();
+        int balanceAfter = balanceBefore + credits;
+        user.setComplaintCredits(balanceAfter);
         userRepository.save(user);
+        return new com.quita.api.user.dto.CreditAllocationResult(balanceBefore, balanceAfter);
     }
 }

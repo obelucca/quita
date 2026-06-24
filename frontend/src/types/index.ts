@@ -2,6 +2,40 @@ export interface User {
   id: string;
   name: string;
   email: string;
+  role: "USER" | "ADMIN";
+}
+
+export interface AdminDashboardMetricsResponse {
+  totalRevenue: number;
+  approvedCount: number;
+  pendingCount: number;
+  failedCount: number;
+}
+
+export interface AdminPaymentEventResponse {
+  id: string;
+  eventType: string;
+  oldStatus: string;
+  newStatus: string;
+  processingSource: string;
+  metadata: Record<string, any>;
+  createdAt: string;
+}
+
+export interface AdminPaymentDetailResponse {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  packageName: string;
+  creditsQuantity: number;
+  amount: number;
+  status: string;
+  mercadopagoPaymentId: string | null;
+  mercadopagoPreferenceId: string | null;
+  createdAt: string;
+  approvedAt: string | null;
+  events?: AdminPaymentEventResponse[];
 }
 
 export interface LoginResponse {

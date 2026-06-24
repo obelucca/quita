@@ -178,6 +178,55 @@ export default function DashboardPage() {
     }
   }, [complaints]);
 
+  // Recovery Journey state (localStorage-based for SDD-018)
+  const [recoveryJourney, setRecoveryJourney] = useState<{
+    status: string;
+    companyName: string;
+    complaintNumber: string;
+    createdAt: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("quita_recovery_journey");
+    if (stored) {
+      try {
+        setRecoveryJourney(JSON.parse(stored));
+      } catch (e) {
+        console.error("Error parsing recovery journey:", e);
+      }
+    }
+  }, []);
+
+  const handleUpdateStatus = (newStatus: string) => {
+    if (!recoveryJourney) return;
+    const updated = { ...recoveryJourney, status: newStatus };
+    setRecoveryJourney(updated);
+    localStorage.setItem("quita_recovery_journey", JSON.stringify(updated));
+    addToast(`Status da reclamação atualizado para: ${getStatusLabel(newStatus)}`, "success");
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case "RECLAMACAO_ENVIADA": return "Reclamação Enviada";
+      case "AGUARDANDO_RESPOSTA": return "Aguardando Resposta";
+      case "RESPONDIDA": return "Respondida";
+      case "NEGOCIACAO_EM_ANDAMENTO": return "Negociação em Andamento";
+      case "ENCERRADA": return "Encerrada";
+      default: return status;
+    }
+  };
+
+  const getStatusStep = (status: string) => {
+    switch (status) {
+      case "RECLAMACAO_ENVIADA": return 1;
+      case "AGUARDANDO_RESPOSTA": return 2;
+      case "RESPONDIDA": return 3;
+      case "NEGOCIACAO_EM_ANDAMENTO": return 4;
+      case "ENCERRADA": return 5;
+      default: return 1;
+    }
+  };
+
   // Clear documents mutation
   const clearDocsMutation = useMutation({
     mutationFn: () => documentService.clear(),
@@ -455,6 +504,148 @@ export default function DashboardPage() {
             </div>
           </Card>
         ) : null}
+
+        {/* Minha Jornada de Recuperação (SDD-018) */}
+        {recoveryJourney && (
+          <Card className="bg-white border-slate-200 p-6 shadow-sm space-y-6 rounded-2xl hover:border-brand-emerald-500/20 transition-all duration-350">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="bg-brand-emerald-50 p-3 rounded-xl border border-brand-emerald-100 text-brand-emerald-600">
+                  <Compass className="w-6 h-6 animate-spin-slow" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-brand-petroleo">Minha Jornada de Recuperação</h2>
+                  <p className="text-slate-500 text-xs font-semibold">Acompanhe e atualize o andamento do seu protocolo oficial.</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-550">Status Atual:</span>
+                <select
+                  value={recoveryJourney.status}
+                  onChange={(e) => handleUpdateStatus(e.target.value)}
+                  className="bg-brand-offwhite-100 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-brand-petroleo focus:outline-none focus:ring-1 focus:ring-brand-emerald-500 cursor-pointer"
+                >
+                  <option value="RECLAMACAO_ENVIADA">Reclamação Enviada</option>
+                  <option value="AGUARDANDO_RESPOSTA">Aguardando Resposta</option>
+                  <option value="RESPONDIDA">Respondida pelo Banco</option>
+                  <option value="NEGOCIACAO_EM_ANDAMENTO">Negociação em Andamento</option>
+                  <option value="ENCERRADA">Encerrada</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+              {/* Left Column: Details */}
+              <div className="lg:col-span-5 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Instituição</span>
+                    <span className="text-xs font-bold text-brand-petroleo mt-1 block truncate" title={recoveryJourney.companyName}>
+                      {recoveryJourney.companyName}
+                    </span>
+                  </div>
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Nº Protocolo</span>
+                    <span className="text-xs font-mono font-bold text-brand-petroleo mt-1 block truncate">
+                      {recoveryJourney.complaintNumber}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Ação Iniciada em</span>
+                    <span className="text-xs font-bold text-brand-petroleo mt-1 block">
+                      {new Date(recoveryJourney.createdAt).toLocaleDateString("pt-BR", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (confirm("Deseja realmente remover esta jornada de recuperação do painel?")) {
+                        localStorage.removeItem("quita_recovery_journey");
+                        setRecoveryJourney(null);
+                        addToast("Jornada de recuperação removida do painel.", "info");
+                      }
+                    }}
+                    className="text-[10px] font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-100 px-2 py-1 rounded transition-colors"
+                  >
+                    Excluir Caso
+                  </button>
+                </div>
+              </div>
+
+              {/* Right Column: Visual Progress Stepper */}
+              <div className="lg:col-span-7 bg-brand-offwhite-50/50 p-5 rounded-2xl border border-slate-150 space-y-4">
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Fases da Resolução</span>
+                <div className="relative flex justify-between items-center w-full px-2">
+                  <div className="absolute left-0 right-0 h-1 bg-slate-200 top-1/2 -translate-y-1/2 -z-0"></div>
+                  <div
+                    className="absolute left-0 h-1 bg-brand-emerald-600 top-1/2 -translate-y-1/2 -z-0 transition-all duration-500"
+                    style={{
+                      width: `${((getStatusStep(recoveryJourney.status) - 1) / 4) * 100}%`,
+                    }}
+                  ></div>
+
+                  {[
+                    { label: "Enviada", step: 1 },
+                    { label: "Em Análise", step: 2 },
+                    { label: "Respondida", step: 3 },
+                    { label: "Em Acordo", step: 4 },
+                    { label: "Resolvida", step: 5 },
+                  ].map((s) => {
+                    const isActive = s.step <= getStatusStep(recoveryJourney.status);
+                    const isCurrent = s.step === getStatusStep(recoveryJourney.status);
+                    return (
+                      <div key={s.step} className="relative z-10 flex flex-col items-center">
+                        <div
+                          className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-all duration-300 ${
+                            isActive
+                              ? "bg-brand-emerald-650 text-white border-brand-emerald-600"
+                              : "bg-white text-slate-400 border-slate-200"
+                          } ${isCurrent ? "shadow-md shadow-brand-emerald-600/35 ring-4 ring-brand-emerald-50" : ""}`}
+                        >
+                          {s.step}
+                        </div>
+                        <span
+                          className={`text-[9px] font-bold mt-2 transition-colors duration-300 ${
+                            isActive ? "text-brand-emerald-700" : "text-slate-400"
+                          }`}
+                        >
+                          {s.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Helpful tips based on status */}
+                <div className="bg-white p-3 rounded-xl border border-slate-100 text-xs font-semibold leading-relaxed text-slate-600">
+                  {recoveryJourney.status === "RECLAMACAO_ENVIADA" && (
+                    <p>💡 <strong>Dica Quita:</strong> Seu protocolo foi enviado. Agora o banco iniciará a análise. Aguarde a alteração de status.</p>
+                  )}
+                  {recoveryJourney.status === "AGUARDANDO_RESPOSTA" && (
+                    <p>⏳ <strong>Dica Quita:</strong> A instituição financeira tem um prazo de até 10 dias para apresentar retorno oficial. Verifique seu e-mail cadastrado regularmente.</p>
+                  )}
+                  {recoveryJourney.status === "RESPONDIDA" && (
+                    <p>🎉 <strong>Dica Quita:</strong> O banco respondeu! Acesse o portal Consumidor.gov.br para ler a proposta de negociação apresentada.</p>
+                  )}
+                  {recoveryJourney.status === "NEGOCIACAO_EM_ANDAMENTO" && (
+                    <p>🤝 <strong>Dica Quita:</strong> Você está em fase de contraproposta. Avalie atentamente os descontos oferecidos e não feche acordos sem antes ler todos os termos.</p>
+                  )}
+                  {recoveryJourney.status === "ENCERRADA" && (
+                    <p>✅ <strong>Dica Quita:</strong> Parabéns por encerrar o caso! Caso a pendência tenha sido quitada, lembre-se de consultar seu Registrato em 30 a 60 dias para auditar se o banco limpou o reporte.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
 
         {/* Seus Documentos SCR */}
         <div className="space-y-4">

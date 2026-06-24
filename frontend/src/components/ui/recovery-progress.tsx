@@ -12,7 +12,7 @@ export const RecoveryProgress: React.FC<RecoveryProgressProps> = ({
   currentStep,
   className = "",
 }) => {
-  const totalSteps = 13;
+  const totalSteps = 19;
 
   // Visual label for active step category
   const getStepCategory = (step: number) => {
@@ -21,7 +21,8 @@ export const RecoveryProgress: React.FC<RecoveryProgressProps> = ({
     if (step <= 6) return "Análise de Dívidas";
     if (step <= 9) return "Configuração da IA";
     if (step <= 11) return "Revisão e Exportação";
-    return "Checklist Final";
+    if (step <= 15) return "Protocolo Assistido";
+    return "Jornada de Conquista";
   };
 
   const getStepDescription = (step: number) => {
@@ -37,26 +38,38 @@ export const RecoveryProgress: React.FC<RecoveryProgressProps> = ({
       case 9: return "Processando Petição";
       case 10: return "Revisar Conteúdo";
       case 11: return "Download e Cópia";
-      case 12: return "Visualização Premium";
-      case 13: return "Protocolar Reclamação";
+      case 12: return "Guia Consumidor";
+      case 13: return "Preparação da Reclamação";
+      case 14: return "Protocolo Assistido";
+      case 15: return "Confirmação de Envio";
+      case 16: return "Momento da Conquista";
+      case 17: return "De Onde Você Saiu";
+      case 18: return "Cenários Futuros";
+      case 19: return "Plano de Acompanhamento";
       default: return "";
     }
   };
 
   const remainingTimes = [
-    "~4 min restantes", // 1
-    "~4 min restantes", // 2
-    "~3 min restantes", // 3
-    "~3 min restantes", // 4
-    "~2 min restantes", // 5
-    "~2 min restantes", // 6
-    "~1 min restante",  // 7
-    "~1 min restante",  // 8
-    "~1 min restante",  // 9
-    "~30 s restantes",  // 10
-    "~30 s restantes",  // 11
-    "~30 s restantes",  // 12
-    "Pronto para Enviar", // 13
+    "~6 min restantes", // 1
+    "~6 min restantes", // 2
+    "~5 min restantes", // 3
+    "~5 min restantes", // 4
+    "~4 min restantes", // 5
+    "~4 min restantes", // 6
+    "~3 min restantes",  // 7
+    "~3 min restantes",  // 8
+    "~3 min restantes",  // 9
+    "~2 min restantes",  // 10
+    "~2 min restantes",  // 11
+    "~2 min restantes",  // 12
+    "~1 min restante",   // 13
+    "~1 min restante",   // 14
+    "~30 s restantes",   // 15
+    "Parabéns",          // 16
+    "Sua Evolução",      // 17
+    "Próximos Cenários", // 18
+    "Plano Final",       // 19
   ];
 
   return (

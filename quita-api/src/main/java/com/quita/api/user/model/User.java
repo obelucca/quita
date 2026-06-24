@@ -40,5 +40,10 @@ public class User {
     @Builder.Default
     @Column(name = "complaint_credits", nullable = false)
     private Integer complaintCredits = 0;
+
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private UserRole role = UserRole.USER;
 }
 

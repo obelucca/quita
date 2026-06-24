@@ -32,6 +32,7 @@ import {
   LogOut,
   User,
   AlertTriangle,
+  Clock,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -186,6 +187,27 @@ export default function WizardPage() {
   const [scrReportGenerated, setScrReportGenerated] = useState(false);
   const [pdfSavedOnDevice, setPdfSavedOnDevice] = useState(false);
 
+  // Local state for SDD-018
+  const [step13Checked, setStep13Checked] = useState({ govbr: false, manifest: false, scr: false, dossier: false });
+  const [step14Checked, setStep14Checked] = useState({
+    access: false,
+    login: false,
+    choose: false,
+    category: false,
+    paste: false,
+    attach: false,
+    send: false,
+  });
+  const [protocolNumber, setProtocolNumber] = useState("");
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [step19Checked, setStep19Checked] = useState({
+    track: false,
+    email: false,
+    response: false,
+    save: false,
+    return: false,
+  });
+
   // Local states for Step 3 smart upload (SDD-012)
   const [uploadStage, setUploadStage] = useState<"idle" | "pre-analyzing" | "result-success" | "result-failed">("idle");
   const [loadingStep, setLoadingStep] = useState(1);
@@ -311,6 +333,25 @@ export default function WizardPage() {
     setLoadingStep(1);
     setTempInsights(null);
     setTempDebts([]);
+    setStep13Checked({ govbr: false, manifest: false, scr: false, dossier: false });
+    setStep14Checked({
+      access: false,
+      login: false,
+      choose: false,
+      category: false,
+      paste: false,
+      attach: false,
+      send: false,
+    });
+    setProtocolNumber("");
+    setIsSubmitted(false);
+    setStep19Checked({
+      track: false,
+      email: false,
+      response: false,
+      save: false,
+      return: false,
+    });
   };
 
   // Fetch insights
@@ -2025,42 +2066,63 @@ export default function WizardPage() {
             </div>
           )}
 
-          {/* STEP 12: Monetização (Simulação) */}
+          {/* STEP 12: Guia Assistido Consumidor.gov.br */}
           {state.step === 12 && (
             <div className="space-y-6">
               <div className="flex items-center gap-3">
-                <div className="bg-brand-emerald-50 p-3 rounded-xl border border-brand-emerald-100">
-                  <CreditCard className="w-6 h-6 text-brand-emerald-600" />
+                <div className="bg-brand-emerald-50 p-3 rounded-xl border border-brand-emerald-100 text-brand-emerald-600">
+                  <Shield className="w-6 h-6" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold text-brand-petroleo">Quita Premium (Simulado)</h2>
-                  <p className="text-slate-500 text-sm">Geração de reclamações ilimitadas.</p>
+                  <h2 className="text-2xl font-bold text-brand-petroleo">Plataforma Consumidor.gov.br</h2>
+                  <p className="text-slate-500 text-sm">O canal oficial para mediar sua reclamação diretamente com o banco.</p>
                 </div>
               </div>
 
-              <div className="bg-brand-offwhite-100 border border-slate-200 p-6 rounded-2xl space-y-4 shadow-sm">
-                <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-                  <div>
-                    <h3 className="font-bold text-brand-petroleo">Geração Gratuita</h3>
-                    <p className="text-xs text-slate-500">Você já utilizou sua 1ª reclamação gratuita.</p>
-                  </div>
-                  <span className="text-xs bg-brand-emerald-50 border border-brand-emerald-150 text-brand-emerald-700 font-bold px-2 py-1 rounded">
-                    Utilizada
-                  </span>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-slate-50 border border-slate-200 p-5 rounded-2xl space-y-2">
+                  <h4 className="font-bold text-brand-petroleo text-xs uppercase tracking-wider">O que é?</h4>
+                  <p className="text-xs text-slate-550 leading-relaxed font-semibold">
+                    Um serviço público gratuito do Ministério da Justiça que conecta consumidores diretamente às empresas para resolver conflitos financeiros.
+                  </p>
                 </div>
-
-                <div className="flex items-center justify-between pt-2">
-                  <div>
-                    <h3 className="font-bold text-brand-petroleo">Pacote 3 Novas Reclamações</h3>
-                    <p className="text-xs text-slate-500">Para contestar outras instituições do seu Registrato.</p>
-                  </div>
-                  <span className="font-mono font-bold text-brand-emerald-600 text-lg">
-                    R$ 15,00
-                  </span>
+                <div className="bg-slate-50 border border-slate-200 p-5 rounded-2xl space-y-2">
+                  <h4 className="font-bold text-brand-petroleo text-xs uppercase tracking-wider">Como funciona?</h4>
+                  <p className="text-xs text-slate-550 leading-relaxed font-semibold">
+                    Você protocola a petição fundamentada do Quita e os documentos. O banco tem a obrigação regulatória de analisar e responder formalmente.
+                  </p>
                 </div>
+                <div className="bg-slate-50 border border-slate-200 p-5 rounded-2xl space-y-2">
+                  <h4 className="font-bold text-brand-petroleo text-xs uppercase tracking-wider">Prazos e Resolução</h4>
+                  <p className="text-xs text-slate-550 leading-relaxed font-semibold">
+                    As instituições financeiras respondem em média em até 10 dias. Mais de 80% das reclamações são resolvidas com sucesso no portal.
+                  </p>
+                </div>
+              </div>
 
-                <div className="bg-brand-emerald-50/50 border border-brand-emerald-500/10 p-3.5 rounded-xl text-xs text-brand-emerald-750 leading-relaxed font-semibold">
-                  Nota: Esta etapa é uma simulação do modelo de cobrança do MVP. Não serão solicitados dados reais de cobrança. Prossiga sem custos.
+              <div className="bg-brand-offwhite-100 border border-slate-200 p-5 rounded-2xl space-y-3">
+                <h3 className="text-xs font-bold text-brand-petroleo uppercase tracking-wider">Etapas da Negociação</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 text-center">
+                  <div className="bg-white border border-slate-100 p-3 rounded-xl shadow-xs">
+                    <span className="text-[10px] bg-brand-emerald-50 text-brand-emerald-700 px-2 py-0.5 rounded font-bold">1</span>
+                    <p className="text-xs font-bold mt-2 text-brand-petroleo">Protocolo</p>
+                    <p className="text-[10px] text-slate-500 mt-1">Envio da petição e documentos.</p>
+                  </div>
+                  <div className="bg-white border border-slate-100 p-3 rounded-xl shadow-xs">
+                    <span className="text-[10px] bg-brand-emerald-50 text-brand-emerald-700 px-2 py-0.5 rounded font-bold">2</span>
+                    <p className="text-xs font-bold mt-2 text-brand-petroleo">Análise</p>
+                    <p className="text-[10px] text-slate-500 mt-1">Análise jurídica do banco.</p>
+                  </div>
+                  <div className="bg-white border border-slate-100 p-3 rounded-xl shadow-xs">
+                    <span className="text-[10px] bg-brand-emerald-50 text-brand-emerald-700 px-2 py-0.5 rounded font-bold">3</span>
+                    <p className="text-xs font-bold mt-2 text-brand-petroleo">Proposta</p>
+                    <p className="text-[10px] text-slate-500 mt-1">Retorno formal com termos de ajuste.</p>
+                  </div>
+                  <div className="bg-white border border-slate-100 p-3 rounded-xl shadow-xs">
+                    <span className="text-[10px] bg-brand-emerald-50 text-brand-emerald-700 px-2 py-0.5 rounded font-bold">4</span>
+                    <p className="text-xs font-bold mt-2 text-brand-petroleo">Avaliação</p>
+                    <p className="text-[10px] text-slate-500 mt-1">Você avalia e encerra o caso.</p>
+                  </div>
                 </div>
               </div>
 
@@ -2072,23 +2134,652 @@ export default function WizardPage() {
                   <ChevronLeft className="w-5 h-5" /> Voltar
                 </button>
                 <Button variant="primary" onClick={() => updateState({ step: 13 })}>
-                  Avançar Gratuitamente <ChevronRight className="w-5 h-5 ml-1" />
+                  Continuar <ChevronRight className="w-5 h-5 ml-1" />
                 </Button>
               </div>
             </div>
           )}
 
-          {/* STEP 13: Checklist & Completion Moment */}
+          {/* STEP 13: Preparação da Reclamação */}
           {state.step === 13 && (
-            <CompletionMoment
-              institution={state.selectedInstitution || "Instituição Financeira"}
-              onFinish={() => {
-                if (user) {
-                  wizardStorage.clear(user.id);
-                }
-                router.push("/dashboard");
-              }}
-            />
+            <div className="space-y-6">
+              <div className="flex items-center gap-3">
+                <div className="bg-brand-emerald-50 p-3 rounded-xl border border-brand-emerald-100 text-brand-emerald-600">
+                  <FileCheck className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-brand-petroleo">Preparação da Reclamação</h2>
+                  <p className="text-slate-500 text-sm">Verifique os itens necessários antes de abrir a reclamação.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-slate-50 border border-slate-200 p-5 rounded-2xl space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Empresa Alvo</span>
+                  <p className="text-base font-bold text-brand-petroleo">{state.selectedInstitution}</p>
+                </div>
+                <div className="bg-slate-50 border border-slate-200 p-5 rounded-2xl space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Categoria Sugerida</span>
+                  <p className="text-base font-bold text-brand-petroleo">Renegociação de Dívidas / Cobrança Abusiva</p>
+                </div>
+              </div>
+
+              {/* Checklist */}
+              <div className="bg-brand-offwhite-100 border border-slate-200 p-6 rounded-2xl space-y-4">
+                <h3 className="text-xs font-bold text-brand-petroleo uppercase tracking-wider">Checklist Obrigatório</h3>
+                <div className="space-y-3">
+                  <label className="flex items-start gap-3 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={step13Checked.govbr}
+                      onChange={(e) => setStep13Checked({ ...step13Checked, govbr: e.target.checked })}
+                      className="mt-1 w-4.5 h-4.5 rounded text-brand-emerald-600 border-slate-300 focus:ring-brand-emerald-500 cursor-pointer"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-brand-petroleo block">Conta Gov.br Ativa</span>
+                      <span className="text-[10px] text-slate-500 leading-normal block">
+                        Confirmo que possuo conta Gov.br nível Prata ou Ouro ativa para realizar o login no portal.
+                      </span>
+                    </div>
+                  </label>
+
+                  <label className="flex items-start gap-3 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={step13Checked.manifest}
+                      onChange={(e) => setStep13Checked({ ...step13Checked, manifest: e.target.checked })}
+                      className="mt-1 w-4.5 h-4.5 rounded text-brand-emerald-600 border-slate-300 focus:ring-brand-emerald-500 cursor-pointer"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-brand-petroleo block">Manifestação Reguladora Pronta</span>
+                      <span className="text-[10px] text-slate-500 leading-normal block">
+                        Já revisei e copiei o texto da petição elaborada pelo assistente Quita.
+                      </span>
+                    </div>
+                  </label>
+
+                  <label className="flex items-start gap-3 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={step13Checked.scr}
+                      onChange={(e) => setStep13Checked({ ...step13Checked, scr: e.target.checked })}
+                      className="mt-1 w-4.5 h-4.5 rounded text-brand-emerald-600 border-slate-300 focus:ring-brand-emerald-500 cursor-pointer"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-brand-petroleo block">Relatório do SCR/Registrato Salvo</span>
+                      <span className="text-[10px] text-slate-500 leading-normal block">
+                        Tenho o PDF do extrato original do Registrato salvo no meu dispositivo para servir como prova.
+                      </span>
+                    </div>
+                  </label>
+
+                  <label className="flex items-start gap-3 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={step13Checked.dossier}
+                      onChange={(e) => setStep13Checked({ ...step13Checked, dossier: e.target.checked })}
+                      className="mt-1 w-4.5 h-4.5 rounded text-brand-emerald-600 border-slate-300 focus:ring-brand-emerald-500 cursor-pointer"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-brand-petroleo block">Dossiê PDF Exportado</span>
+                      <span className="text-[10px] text-slate-500 leading-normal block">
+                        Realizei o download do Dossiê Financeiro Quita em PDF para anexar à reclamação.
+                      </span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center pt-4">
+                <button
+                  onClick={() => updateState({ step: 12 })}
+                  className="text-slate-550 hover:text-brand-petroleo font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                >
+                  <ChevronLeft className="w-5 h-5" /> Voltar
+                </button>
+                <Button
+                  variant="primary"
+                  onClick={() => updateState({ step: 14 })}
+                  disabled={!(step13Checked.govbr && step13Checked.manifest && step13Checked.scr && step13Checked.dossier)}
+                >
+                  Estou Pronto para Continuar <ChevronRight className="w-5 h-5 ml-1" />
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 14: Protocolo Assistido */}
+          {state.step === 14 && (
+            <div className="space-y-6">
+              <div className="flex items-center gap-3">
+                <div className="bg-brand-emerald-50 p-3 rounded-xl border border-brand-emerald-100 text-brand-emerald-600">
+                  <Shield className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-brand-petroleo">Protocolo Assistido</h2>
+                  <p className="text-slate-500 text-sm">Siga os passos no painel direito enquanto copia os dados no esquerdo.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Left Panel: Resources */}
+                <div className="space-y-4 bg-brand-offwhite-100 border border-slate-200 p-5 rounded-2xl flex flex-col justify-between">
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-bold text-brand-petroleo uppercase tracking-wider">Seus Recursos</h3>
+                    <div className="bg-white border border-slate-105 p-3 rounded-xl text-xs font-mono text-slate-600 max-h-[140px] overflow-y-auto shadow-inner leading-relaxed">
+                      {complaintText}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Button variant="secondary" onClick={handleCopyToClipboard} className="w-full h-10 text-xs">
+                      {copiedText ? (
+                        <>
+                          <CheckCircle className="w-4 h-4 text-brand-emerald-650 mr-1.5" />
+                          Copiado!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4 text-brand-emerald-650 mr-1.5" />
+                          Copiar Manifestação
+                        </>
+                      )}
+                    </Button>
+                    <Button variant="secondary" onClick={handleDownloadPdf} className="w-full h-10 text-xs bg-white border border-slate-200">
+                      <Download className="w-4 h-4 text-brand-emerald-650 mr-1.5" />
+                      Baixar Dossiê PDF
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Right Panel: Step by step checklist */}
+                <div className="space-y-3 bg-slate-50 border border-slate-200 p-5 rounded-2xl">
+                  <h3 className="text-xs font-bold text-brand-petroleo uppercase tracking-wider mb-2">Checklist de Protocolo</h3>
+                  
+                  <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                    <label className="flex items-center gap-2.5 cursor-pointer select-none text-xs font-semibold text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={step14Checked.access}
+                        onChange={(e) => setStep14Checked({ ...step14Checked, access: e.target.checked })}
+                        className="w-4 h-4 rounded text-brand-emerald-600 border-slate-300 focus:ring-brand-emerald-500 cursor-pointer"
+                      />
+                      <span>1. Acessar o Consumidor.gov.br</span>
+                    </label>
+
+                    <label className="flex items-center gap-2.5 cursor-pointer select-none text-xs font-semibold text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={step14Checked.login}
+                        onChange={(e) => setStep14Checked({ ...step14Checked, login: e.target.checked })}
+                        className="w-4 h-4 rounded text-brand-emerald-600 border-slate-300 focus:ring-brand-emerald-500 cursor-pointer"
+                      />
+                      <span>2. Fazer login com a conta Gov.br</span>
+                    </label>
+
+                    <label className="flex items-center gap-2.5 cursor-pointer select-none text-xs font-semibold text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={step14Checked.choose}
+                        onChange={(e) => setStep14Checked({ ...step14Checked, choose: e.target.checked })}
+                        className="w-4 h-4 rounded text-brand-emerald-600 border-slate-300 focus:ring-brand-emerald-500 cursor-pointer"
+                      />
+                      <span>3. Escolher empresa: <strong>{state.selectedInstitution}</strong></span>
+                    </label>
+
+                    <label className="flex items-center gap-2.5 cursor-pointer select-none text-xs font-semibold text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={step14Checked.category}
+                        onChange={(e) => setStep14Checked({ ...step14Checked, category: e.target.checked })}
+                        className="w-4 h-4 rounded text-brand-emerald-600 border-slate-300 focus:ring-brand-emerald-500 cursor-pointer"
+                      />
+                      <span>4. Selecionar categoria recomendada</span>
+                    </label>
+
+                    <label className="flex items-center gap-2.5 cursor-pointer select-none text-xs font-semibold text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={step14Checked.paste}
+                        onChange={(e) => setStep14Checked({ ...step14Checked, paste: e.target.checked })}
+                        className="w-4 h-4 rounded text-brand-emerald-600 border-slate-300 focus:ring-brand-emerald-500 cursor-pointer"
+                      />
+                      <span>5. Colar texto da manifestação regulatória</span>
+                    </label>
+
+                    <label className="flex items-center gap-2.5 cursor-pointer select-none text-xs font-semibold text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={step14Checked.attach}
+                        onChange={(e) => setStep14Checked({ ...step14Checked, attach: e.target.checked })}
+                        className="w-4 h-4 rounded text-brand-emerald-600 border-slate-300 focus:ring-brand-emerald-500 cursor-pointer"
+                      />
+                      <span>6. Anexar PDF do Dossiê Financeiro</span>
+                    </label>
+
+                    <label className="flex items-center gap-2.5 cursor-pointer select-none text-xs font-semibold text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={step14Checked.send}
+                        onChange={(e) => setStep14Checked({ ...step14Checked, send: e.target.checked })}
+                        className="w-4 h-4 rounded text-brand-emerald-600 border-slate-300 focus:ring-brand-emerald-500 cursor-pointer"
+                      />
+                      <span>7. Clicar em enviar e finalizar a reclamação</span>
+                    </label>
+                  </div>
+
+                  <a
+                    href="https://www.consumidor.gov.br"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex w-full items-center justify-center gap-1.5 bg-brand-emerald-600 hover:bg-brand-emerald-700 text-white text-xs font-bold py-2.5 rounded-xl transition-all shadow-md cursor-pointer mt-3"
+                  >
+                    Abrir Consumidor.gov.br <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center pt-4">
+                <button
+                  onClick={() => updateState({ step: 13 })}
+                  className="text-slate-550 hover:text-brand-petroleo font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                >
+                  <ChevronLeft className="w-5 h-5" /> Voltar
+                </button>
+                <Button variant="primary" onClick={() => updateState({ step: 15 })}>
+                  Próximo Passo <ChevronRight className="w-5 h-5 ml-1" />
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 15: Confirmação de Envio */}
+          {state.step === 15 && (
+            <div className="space-y-6">
+              <div className="flex items-center gap-3">
+                <div className="bg-brand-emerald-50 p-3 rounded-xl border border-brand-emerald-100 text-brand-emerald-600">
+                  <CheckCircle className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-brand-petroleo">Confirmação de Envio</h2>
+                  <p className="text-slate-500 text-sm">Precisamos que você confirme o envio para encerrar a jornada.</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="bg-slate-50 border border-slate-200 p-5 rounded-2xl space-y-4">
+                  <div className="space-y-2">
+                    <label className="block text-xs font-bold text-slate-550 uppercase tracking-wider">
+                      Número do Protocolo da Reclamação (Opcional)
+                    </label>
+                    <input
+                      type="text"
+                      value={protocolNumber}
+                      onChange={(e) => setProtocolNumber(e.target.value)}
+                      placeholder="Ex: 2026.06.000012345"
+                      className="block w-full px-3.5 py-3.5 bg-white border border-slate-200 rounded-xl text-brand-petroleo placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-brand-emerald-500 text-sm font-semibold"
+                    />
+                    <p className="text-[10px] text-slate-400 font-semibold leading-normal">
+                      Insira o número fornecido pelo Consumidor.gov.br para facilitar o acompanhamento no seu painel.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-brand-emerald-50/20 border border-brand-emerald-500/10 p-5 rounded-2xl">
+                  <label className="flex items-start gap-3 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={isSubmitted}
+                      onChange={(e) => setIsSubmitted(e.target.checked)}
+                      className="mt-1 w-5 h-5 rounded text-brand-emerald-600 border-slate-300 focus:ring-brand-emerald-500 cursor-pointer"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-brand-emerald-800 block">
+                        Confirmo que enviei a reclamação com sucesso
+                      </span>
+                      <span className="text-[10px] text-brand-emerald-700/80 leading-normal block mt-0.5">
+                        O preenchimento e confirmação deste checklist encerra a edição da reclamação e gera seu plano estratégico.
+                      </span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center pt-4">
+                <button
+                  onClick={() => updateState({ step: 14 })}
+                  className="text-slate-550 hover:text-brand-petroleo font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                >
+                  <ChevronLeft className="w-5 h-5" /> Voltar
+                </button>
+                <Button
+                  variant="primary"
+                  disabled={!isSubmitted}
+                  onClick={() => {
+                    // Save recovery journey to localStorage
+                    const journeyObj = {
+                      status: "RECLAMACAO_ENVIADA",
+                      companyName: state.selectedInstitution || "Instituição Bancária",
+                      complaintNumber: protocolNumber.trim() || "Sob Análise",
+                      createdAt: new Date().toISOString(),
+                    };
+                    localStorage.setItem("quita_recovery_journey", JSON.stringify(journeyObj));
+                    updateState({ step: 16 });
+                  }}
+                >
+                  Concluir e Ver Resultados <ChevronRight className="w-5 h-5 ml-1" />
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 16: Momento da Conquista */}
+          {state.step === 16 && (
+            <div className="space-y-6">
+              <div className="text-center py-4 space-y-3">
+                <div className="inline-flex bg-brand-emerald-50 p-4 rounded-full border border-brand-emerald-100 text-brand-emerald-600 animate-bounce">
+                  <CheckCircle className="w-10 h-10" />
+                </div>
+                <h2 className="text-2xl font-extrabold text-brand-petroleo tracking-tight max-w-lg mx-auto leading-tight">
+                  Parabéns! Você deu um importante passo para recuperar o controle da sua vida financeira.
+                </h2>
+                <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Ação concluída com sucesso</p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-rose-50/50 border border-rose-100 p-5 rounded-2xl space-y-2">
+                  <span className="text-[10px] font-bold text-rose-700 uppercase tracking-wider">Antes desta jornada</span>
+                  <ul className="text-xs text-rose-800 space-y-1.5 font-semibold">
+                    <li className="flex items-center gap-1.5">✕ Dívidas sem análise detalhada</li>
+                    <li className="flex items-center gap-1.5">✕ Falta de direcionamento regulatório</li>
+                    <li className="flex items-center gap-1.5">✕ Ausência de estratégia de negociação</li>
+                  </ul>
+                </div>
+
+                <div className="bg-emerald-50/50 border border-emerald-100 p-5 rounded-2xl space-y-2">
+                  <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Agora você possui</span>
+                  <ul className="text-xs text-emerald-800 space-y-1.5 font-semibold">
+                    <li className="flex items-center gap-1.5">✓ Diagnóstico completo do SCR</li>
+                    <li className="flex items-center gap-1.5">✓ Manifestação fundamentada</li>
+                    <li className="flex items-center gap-1.5">✓ Reclamação oficial protocolada</li>
+                    <li className="flex items-center gap-1.5">✓ Canal oficial de negociação aberto</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-4 border-t border-slate-100">
+                <Button variant="primary" onClick={() => updateState({ step: 17 })}>
+                  Avançar <ChevronRight className="w-5 h-5 ml-1" />
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 17: De onde você saiu */}
+          {state.step === 17 && (
+            <div className="space-y-6">
+              <div className="flex items-center gap-3">
+                <div className="bg-brand-emerald-50 p-3 rounded-xl border border-brand-emerald-100 text-brand-emerald-600">
+                  <Clock className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-brand-petroleo">Sua Linha do Progresso</h2>
+                  <p className="text-slate-550 text-sm font-semibold">Olhe para trás e veja a evolução que conquistou hoje.</p>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 border border-slate-200 p-6 rounded-2xl space-y-6">
+                {/* Horizontal Timeline */}
+                <div className="relative flex justify-between items-center w-full">
+                  <div className="absolute left-0 right-0 h-1 bg-slate-200 top-1/2 -translate-y-1/2 -z-0"></div>
+                  <div className="absolute left-0 right-0 h-1 bg-brand-emerald-600 top-1/2 -translate-y-1/2 -z-0 w-[80%]"></div>
+                  
+                  {[
+                    { label: "Incerteza", active: true },
+                    { label: "Diagnóstico", active: true },
+                    { label: "Planejamento", active: true },
+                    { label: "Ação", active: true },
+                    { label: "Resolução", active: false }
+                  ].map((stepObj, idx) => (
+                    <div key={idx} className="relative z-10 flex flex-col items-center">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border-2 ${
+                        stepObj.active
+                          ? "bg-brand-emerald-650 text-white border-brand-emerald-600"
+                          : "bg-slate-100 text-slate-400 border-slate-300"
+                      }`}>
+                        {idx + 1}
+                      </div>
+                      <span className={`text-[10px] font-bold mt-2 ${stepObj.active ? "text-brand-emerald-700" : "text-slate-400"}`}>
+                        {stepObj.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="text-center bg-white p-5 rounded-xl border border-slate-150 shadow-xs max-w-xl mx-auto">
+                  <p className="text-sm font-semibold text-slate-705 italic leading-relaxed">
+                    "O maior desafio para quem possui dívidas não é a dívida em si, mas a falta de informação e direcionamento. Hoje você já superou essa etapa."
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center pt-4">
+                <button
+                  onClick={() => updateState({ step: 16 })}
+                  className="text-slate-550 hover:text-brand-petroleo font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                >
+                  <ChevronLeft className="w-5 h-5" /> Voltar
+                </button>
+                <Button variant="primary" onClick={() => updateState({ step: 18 })}>
+                  Avançar <ChevronRight className="w-5 h-5 ml-1" />
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 18: Os caminhos que se abrem agora */}
+          {state.step === 18 && (
+            <div className="space-y-6">
+              <div className="flex items-center gap-3">
+                <div className="bg-brand-emerald-50 p-3 rounded-xl border border-brand-emerald-100 text-brand-emerald-600">
+                  <Lightbulb className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-brand-petroleo">Cenários Futuros</h2>
+                  <p className="text-slate-500 text-sm">O que esperar da instituição financeira a partir de agora?</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-slate-50 border border-slate-205 p-4 rounded-xl flex gap-3 shadow-xs">
+                  <span className="text-emerald-500 text-sm mt-0.5">✓</span>
+                  <div>
+                    <h4 className="text-xs font-bold text-brand-petroleo">1. Proposta de Renegociação</h4>
+                    <p className="text-[10px] text-slate-550 leading-relaxed font-semibold">
+                      O banco pode apresentar uma oferta de renegociação com descontos significativos sobre a dívida sob análise.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-205 p-4 rounded-xl flex gap-3 shadow-xs">
+                  <span className="text-emerald-500 text-sm mt-0.5">✓</span>
+                  <div>
+                    <h4 className="text-xs font-bold text-brand-petroleo">2. Correção de Informações</h4>
+                    <p className="text-[10px] text-slate-550 leading-relaxed font-semibold">
+                      Caso o Registrato possua erros de reporte, a instituição enviará a correção oficial ao Banco Central.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-205 p-4 rounded-xl flex gap-3 shadow-xs">
+                  <span className="text-emerald-500 text-sm mt-0.5">✓</span>
+                  <div>
+                    <h4 className="text-xs font-bold text-brand-petroleo">3. Revisão de Cobranças</h4>
+                    <p className="text-[10px] text-slate-550 leading-relaxed font-semibold">
+                      O banco analisará a ocorrência de cobranças indevidas ou juros em desacordo com as normativas.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-205 p-4 rounded-xl flex gap-3 shadow-xs">
+                  <span className="text-emerald-500 text-sm mt-0.5">✓</span>
+                  <div>
+                    <h4 className="text-xs font-bold text-brand-petroleo">4. Esclarecimentos Oficiais</h4>
+                    <p className="text-[10px] text-slate-550 leading-relaxed font-semibold">
+                      Mesmo em recusa, a instituição é obrigada a justificar por escrito as cobranças, gerando prova judicial valiosa.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-brand-emerald-50/30 border border-brand-emerald-500/10 p-4.5 rounded-2xl text-xs text-brand-emerald-800 text-center font-bold">
+                "Independentemente da resposta recebida, você agora possui um registro formal e documentado da sua manifestação."
+              </div>
+
+              <div className="flex justify-between items-center pt-4">
+                <button
+                  onClick={() => updateState({ step: 17 })}
+                  className="text-slate-550 hover:text-brand-petroleo font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                >
+                  <ChevronLeft className="w-5 h-5" /> Voltar
+                </button>
+                <Button variant="primary" onClick={() => updateState({ step: 19 })}>
+                  Avançar <ChevronRight className="w-5 h-5 ml-1" />
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 19: Plano de Acompanhamento */}
+          {state.step === 19 && (
+            <div className="space-y-6">
+              <div className="flex items-center gap-3">
+                <div className="bg-brand-emerald-50 p-3 rounded-xl border border-brand-emerald-100 text-brand-emerald-600">
+                  <CheckCircle className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-brand-petroleo">Plano de Acompanhamento</h2>
+                  <p className="text-slate-500 text-sm">Compromissos para os próximos dias de análise do caso.</p>
+                </div>
+              </div>
+
+              <div className="bg-brand-offwhite-100 border border-slate-200 p-6 rounded-2xl space-y-4">
+                <h3 className="text-xs font-bold text-brand-petroleo uppercase tracking-wider">Seu Plano Estratégico</h3>
+                
+                <div className="space-y-3">
+                  <label className="flex items-start gap-3 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={step19Checked.track}
+                      onChange={(e) => setStep19Checked({ ...step19Checked, track: e.target.checked })}
+                      className="mt-1 w-4.5 h-4.5 rounded text-brand-emerald-600 border-slate-300 focus:ring-brand-emerald-500 cursor-pointer"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-brand-petroleo block">Acompanhar o Consumidor.gov.br</span>
+                      <span className="text-[10px] text-slate-550 leading-normal block">
+                        Acessar a plataforma pelo menos uma vez por semana para verificar o status do protocolo.
+                      </span>
+                    </div>
+                  </label>
+
+                  <label className="flex items-start gap-3 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={step19Checked.email}
+                      onChange={(e) => setStep19Checked({ ...step19Checked, email: e.target.checked })}
+                      className="mt-1 w-4.5 h-4.5 rounded text-brand-emerald-600 border-slate-300 focus:ring-brand-emerald-500 cursor-pointer"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-brand-petroleo block">Verificar E-mail Cadastrado</span>
+                      <span className="text-[10px] text-slate-550 leading-normal block">
+                        Ficar atento a notificações enviadas pelo portal Consumidor.gov.br com alertas de resposta.
+                      </span>
+                    </div>
+                  </label>
+
+                  <label className="flex items-start gap-3 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={step19Checked.response}
+                      onChange={(e) => setStep19Checked({ ...step19Checked, response: e.target.checked })}
+                      className="mt-1 w-4.5 h-4.5 rounded text-brand-emerald-600 border-slate-300 focus:ring-brand-emerald-500 cursor-pointer"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-brand-petroleo block">Acompanhar Novas Respostas</span>
+                      <span className="text-[10px] text-slate-550 leading-normal block">
+                        Responder a eventuais dúvidas ou solicitações de documentos complementares feitas pelo banco.
+                      </span>
+                    </div>
+                  </label>
+
+                  <label className="flex items-start gap-3 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={step19Checked.save}
+                      onChange={(e) => setStep19Checked({ ...step19Checked, save: e.target.checked })}
+                      className="mt-1 w-4.5 h-4.5 rounded text-brand-emerald-600 border-slate-300 focus:ring-brand-emerald-500 cursor-pointer"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-brand-petroleo block">Salvar Documentos Recebidos</span>
+                      <span className="text-[10px] text-slate-550 leading-normal block">
+                        Efetuar download de qualquer proposta de renegociação assinada ou documento emitido pelo banco.
+                      </span>
+                    </div>
+                  </label>
+
+                  <label className="flex items-start gap-3 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={step19Checked.return}
+                      onChange={(e) => setStep19Checked({ ...step19Checked, return: e.target.checked })}
+                      className="mt-1 w-4.5 h-4.5 rounded text-brand-emerald-600 border-slate-300 focus:ring-brand-emerald-500 cursor-pointer"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-brand-petroleo block">Retornar ao Quita para Novas Ações</span>
+                      <span className="text-[10px] text-slate-555 leading-normal block font-semibold">
+                        Após receber a resposta, usar o Quita para auditar o novo SCR ou abrir outras reclamações se necessário.
+                      </span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <div className="text-center font-bold text-xs text-brand-emerald-850 bg-emerald-50/50 border border-emerald-100 p-4 rounded-xl">
+                "As melhores negociações normalmente acontecem quando o consumidor acompanha ativamente o processo."
+              </div>
+
+              <div className="flex justify-between items-center pt-4">
+                <button
+                  onClick={() => updateState({ step: 18 })}
+                  className="text-slate-550 hover:text-brand-petroleo font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                >
+                  <ChevronLeft className="w-5 h-5" /> Voltar
+                </button>
+                <Button
+                  variant="primary"
+                  disabled={!(step19Checked.track && step19Checked.email && step19Checked.response && step19Checked.save && step19Checked.return)}
+                  onClick={() => {
+                    // Update localStorage status to RECLAMACAO_ENVIADA to ensure it matches
+                    const existing = localStorage.getItem("quita_recovery_journey");
+                    if (existing) {
+                      try {
+                        const parsed = JSON.parse(existing);
+                        parsed.status = "RECLAMACAO_ENVIADA";
+                        localStorage.setItem("quita_recovery_journey", JSON.stringify(parsed));
+                      } catch (e) {
+                        console.error(e);
+                      }
+                    }
+                    if (user) {
+                      wizardStorage.clear(user.id);
+                    }
+                    router.push("/dashboard");
+                  }}
+                >
+                  Finalizar e ir para o Dashboard <ChevronRight className="w-5 h-5 ml-1" />
+                </Button>
+              </div>
+            </div>
           )}
 
         </Card>

@@ -29,6 +29,9 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.Map;
+import com.quita.api.payment.model.PaymentEventType;
+import com.quita.api.payment.model.PaymentEventSource;
 
 @Service
 @RequiredArgsConstructor
@@ -37,6 +40,7 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final CreditService creditService;
+    private final PaymentAuditService paymentAuditService;
 
     @Value("${app.frontend.url:http://localhost:3000}")
     private String frontendUrl;
@@ -112,6 +116,15 @@ public class PaymentService {
 
             paymentRepository.save(payment);
 
+            paymentAuditService.recordEvent(
+                    payment.getId(),
+                    PaymentEventType.PAYMENT_CREATED,
+                    null,
+                    PaymentStatus.PENDING,
+                    PaymentEventSource.SYSTEM,
+                    Map.of("packageName", packageName, "amount", amount.toString(), "mock", "true")
+            );
+
             String mockUrl = String.format("%s/payment/success?payment_id=MOCK-PAY:%s:approved&status=approved&external_reference=%s&preference_id=MOCK-PREF-%s",
                     frontendUrl, paymentId, paymentId, paymentId);
 
@@ -162,6 +175,15 @@ public class PaymentService {
 
             paymentRepository.save(payment);
 
+            paymentAuditService.recordEvent(
+                    payment.getId(),
+                    PaymentEventType.PAYMENT_CREATED,
+                    null,
+                    PaymentStatus.PENDING,
+                    PaymentEventSource.SYSTEM,
+                    Map.of("packageName", packageName, "amount", amount.toString())
+            );
+
             log.info("Criação de Checkout - UserId: {}, Package: {}, PreferenceId: {}, ExternalReference: {}",
                     userId, packageId, preference.getId(), paymentId);
 
@@ -206,38 +228,117 @@ public class PaymentService {
 
                 log.info("[MOCK MODE] Processando webhook para pagamento {}. Status MP: {}", payment.getId(), mockStatus);
 
+                paymentAuditService.recordEvent(
+                        payment.getId(),
+                        PaymentEventType.WEBHOOK_RECEIVED,
+                        payment.getStatus(),
+                        payment.getStatus(),
+                        PaymentEventSource.WEBHOOK,
+                        Map.of("dataId", dataId != null ? dataId : "null", "action", action != null ? action : "null")
+                );
+
                 if (PaymentStatus.APPROVED.equals(payment.getStatus())) {
                     log.info("Webhook duplicado ignorado - PaymentId: {}, Status: APPROVED, UserId: {}, Créditos concedidos: 0",
                             payment.getId(), payment.getUserId());
+                    paymentAuditService.recordEvent(
+                            payment.getId(),
+                            PaymentEventType.DUPLICATE_WEBHOOK_IGNORED,
+                            PaymentStatus.APPROVED,
+                            PaymentStatus.APPROVED,
+                            PaymentEventSource.WEBHOOK,
+                            Map.of("message", "Payment already APPROVED")
+                    );
                     return;
                 }
 
                 if (PaymentStatus.REJECTED.equals(payment.getStatus()) || PaymentStatus.CANCELLED.equals(payment.getStatus())) {
                     log.info("Webhook duplicado ignorado - PaymentId: {}, Status: {}, UserId: {}, Créditos concedidos: 0",
                             payment.getId(), payment.getStatus(), payment.getUserId());
+                    paymentAuditService.recordEvent(
+                            payment.getId(),
+                            PaymentEventType.DUPLICATE_WEBHOOK_IGNORED,
+                            payment.getStatus(),
+                            payment.getStatus(),
+                            PaymentEventSource.WEBHOOK,
+                            Map.of("message", "Payment already in final state: " + payment.getStatus())
+                    );
                     return;
                 }
 
                 payment.setMercadopagoPaymentId(dataId);
+                PaymentStatus oldStatus = payment.getStatus();
 
                 if ("approved".equalsIgnoreCase(mockStatus)) {
                     payment.setStatus(PaymentStatus.APPROVED);
                     payment.setApprovedAt(LocalDateTime.now());
                     paymentRepository.save(payment);
-                    creditService.addCredits(payment.getUserId(), payment.getCreditsQuantity());
+
+                    com.quita.api.user.dto.CreditAllocationResult allocation = creditService.addCredits(payment.getUserId(), payment.getCreditsQuantity());
+
+                    paymentAuditService.recordEvent(
+                            payment.getId(),
+                            PaymentEventType.PAYMENT_APPROVED,
+                            oldStatus,
+                            PaymentStatus.APPROVED,
+                            PaymentEventSource.WEBHOOK,
+                            Map.of("mercadopagoPaymentId", dataId)
+                    );
+
+                    paymentAuditService.recordEvent(
+                            payment.getId(),
+                            PaymentEventType.CREDITS_GRANTED,
+                            PaymentStatus.APPROVED,
+                            PaymentStatus.APPROVED,
+                            PaymentEventSource.WEBHOOK,
+                            Map.of(
+                                    "credits", payment.getCreditsQuantity(),
+                                    "balanceBefore", allocation.balanceBefore(),
+                                    "balanceAfter", allocation.balanceAfter()
+                            )
+                    );
+
                     log.info("Webhook - PaymentId: {}, Status: APPROVED, UserId: {}, Créditos concedidos: {}",
                             payment.getId(), payment.getStatus(), payment.getUserId(), payment.getCreditsQuantity());
                 } else if ("rejected".equalsIgnoreCase(mockStatus)) {
                     payment.setStatus(PaymentStatus.REJECTED);
                     paymentRepository.save(payment);
+
+                    paymentAuditService.recordEvent(
+                            payment.getId(),
+                            PaymentEventType.PAYMENT_REJECTED,
+                            oldStatus,
+                            PaymentStatus.REJECTED,
+                            PaymentEventSource.WEBHOOK,
+                            Map.of("mercadopagoPaymentId", dataId)
+                    );
+
                     log.info("Webhook - PaymentId: {}, Status: REJECTED, UserId: {}, Créditos concedidos: 0",
                             payment.getId(), payment.getUserId());
                 } else if ("cancelled".equalsIgnoreCase(mockStatus)) {
                     payment.setStatus(PaymentStatus.CANCELLED);
                     paymentRepository.save(payment);
+
+                    paymentAuditService.recordEvent(
+                            payment.getId(),
+                            PaymentEventType.PAYMENT_CANCELLED,
+                            oldStatus,
+                            PaymentStatus.CANCELLED,
+                            PaymentEventSource.WEBHOOK,
+                            Map.of("mercadopagoPaymentId", dataId)
+                    );
+
                     log.info("Webhook - PaymentId: {}, Status: CANCELLED, UserId: {}, Créditos concedidos: 0",
                             payment.getId(), payment.getUserId());
                 } else {
+                    paymentAuditService.recordEvent(
+                            payment.getId(),
+                            PaymentEventType.PAYMENT_PENDING,
+                            oldStatus,
+                            PaymentStatus.PENDING,
+                            PaymentEventSource.WEBHOOK,
+                            Map.of("mercadopagoPaymentId", dataId)
+                    );
+
                     log.info("Webhook - PaymentId: {}, Status: PENDING (MP: {}), UserId: {}, Créditos concedidos: 0",
                             payment.getId(), mockStatus, payment.getUserId());
                 }
@@ -263,40 +364,117 @@ public class PaymentService {
             String mpStatus = mpPayment.getStatus();
             log.info("Processando webhook para pagamento {}. Status MP: {}", payment.getId(), mpStatus);
 
+            paymentAuditService.recordEvent(
+                    payment.getId(),
+                    PaymentEventType.WEBHOOK_RECEIVED,
+                    payment.getStatus(),
+                    payment.getStatus(),
+                    PaymentEventSource.WEBHOOK,
+                    Map.of("dataId", dataId != null ? dataId : "null", "action", action != null ? action : "null")
+            );
+
             if (PaymentStatus.APPROVED.equals(payment.getStatus())) {
                 log.info("Webhook duplicado ignorado - PaymentId: {}, Status: APPROVED, UserId: {}, Créditos concedidos: 0",
                         payment.getId(), payment.getUserId());
+                paymentAuditService.recordEvent(
+                        payment.getId(),
+                        PaymentEventType.DUPLICATE_WEBHOOK_IGNORED,
+                        PaymentStatus.APPROVED,
+                        PaymentStatus.APPROVED,
+                        PaymentEventSource.WEBHOOK,
+                        Map.of("message", "Payment already APPROVED")
+                );
                 return;
             }
 
             if (PaymentStatus.REJECTED.equals(payment.getStatus()) || PaymentStatus.CANCELLED.equals(payment.getStatus())) {
                 log.info("Webhook duplicado ignorado - PaymentId: {}, Status: {}, UserId: {}, Créditos concedidos: 0",
                         payment.getId(), payment.getStatus(), payment.getUserId());
+                paymentAuditService.recordEvent(
+                        payment.getId(),
+                        PaymentEventType.DUPLICATE_WEBHOOK_IGNORED,
+                        payment.getStatus(),
+                        payment.getStatus(),
+                        PaymentEventSource.WEBHOOK,
+                        Map.of("message", "Payment already in final state: " + payment.getStatus())
+                );
                 return;
             }
 
             payment.setMercadopagoPaymentId(dataId);
+            PaymentStatus oldStatus = payment.getStatus();
 
             if ("approved".equalsIgnoreCase(mpStatus)) {
                 payment.setStatus(PaymentStatus.APPROVED);
                 payment.setApprovedAt(LocalDateTime.now());
                 paymentRepository.save(payment);
 
-                // Credita o usuário com a quantidade de créditos do pacote
-                creditService.addCredits(payment.getUserId(), payment.getCreditsQuantity());
+                com.quita.api.user.dto.CreditAllocationResult allocation = creditService.addCredits(payment.getUserId(), payment.getCreditsQuantity());
+
+                paymentAuditService.recordEvent(
+                        payment.getId(),
+                        PaymentEventType.PAYMENT_APPROVED,
+                        oldStatus,
+                        PaymentStatus.APPROVED,
+                        PaymentEventSource.WEBHOOK,
+                        Map.of("mercadopagoPaymentId", dataId)
+                );
+
+                paymentAuditService.recordEvent(
+                        payment.getId(),
+                        PaymentEventType.CREDITS_GRANTED,
+                        PaymentStatus.APPROVED,
+                        PaymentStatus.APPROVED,
+                        PaymentEventSource.WEBHOOK,
+                        Map.of(
+                                "credits", payment.getCreditsQuantity(),
+                                "balanceBefore", allocation.balanceBefore(),
+                                "balanceAfter", allocation.balanceAfter()
+                        )
+                );
+
                 log.info("Webhook - PaymentId: {}, Status: APPROVED, UserId: {}, Créditos concedidos: {}",
                         payment.getId(), payment.getStatus(), payment.getUserId(), payment.getCreditsQuantity());
             } else if ("rejected".equalsIgnoreCase(mpStatus)) {
                 payment.setStatus(PaymentStatus.REJECTED);
                 paymentRepository.save(payment);
+
+                paymentAuditService.recordEvent(
+                        payment.getId(),
+                        PaymentEventType.PAYMENT_REJECTED,
+                        oldStatus,
+                        PaymentStatus.REJECTED,
+                        PaymentEventSource.WEBHOOK,
+                        Map.of("mercadopagoPaymentId", dataId)
+                );
+
                 log.info("Webhook - PaymentId: {}, Status: REJECTED, UserId: {}, Créditos concedidos: 0",
                         payment.getId(), payment.getUserId());
             } else if ("cancelled".equalsIgnoreCase(mpStatus)) {
                 payment.setStatus(PaymentStatus.CANCELLED);
                 paymentRepository.save(payment);
+
+                paymentAuditService.recordEvent(
+                        payment.getId(),
+                        PaymentEventType.PAYMENT_CANCELLED,
+                        oldStatus,
+                        PaymentStatus.CANCELLED,
+                        PaymentEventSource.WEBHOOK,
+                        Map.of("mercadopagoPaymentId", dataId)
+                );
+
                 log.info("Webhook - PaymentId: {}, Status: CANCELLED, UserId: {}, Créditos concedidos: 0",
                         payment.getId(), payment.getUserId());
             } else {
+                paymentAuditService.recordEvent(
+                        payment.getId(),
+                        PaymentEventType.PAYMENT_PENDING,
+                        oldStatus,
+                        PaymentStatus.PENDING,
+                        PaymentEventSource.WEBHOOK,
+                        Map.of("mercadopagoPaymentId", dataId)
+                );
+
                 log.info("Webhook - PaymentId: {}, Status: PENDING (MP: {}), UserId: {}, Créditos concedidos: 0",
                         payment.getId(), mpStatus, payment.getUserId());
             }

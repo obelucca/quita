@@ -47,6 +47,9 @@ class PaymentServiceTest {
     @Mock
     private PaymentClient paymentClient;
 
+    @Mock
+    private PaymentAuditService paymentAuditService;
+
     @InjectMocks
     @Spy
     private PaymentService paymentService;
@@ -108,6 +111,7 @@ class PaymentServiceTest {
         when(mpPayment.getExternalReference()).thenReturn(paymentId.toString());
 
         when(paymentClient.get(123456789L)).thenReturn(mpPayment);
+        when(creditService.addCredits(userId, 3)).thenReturn(new com.quita.api.user.dto.CreditAllocationResult(0, 3));
 
         paymentService.processWebhook(null, null, "123456789", "payment.updated");
 
