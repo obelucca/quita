@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import Providers from "./providers";
+import GoogleAnalytics from "@/components/GoogleAnalytics";
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
@@ -116,6 +117,7 @@ export default function RootLayout({
             __html: JSON.stringify(websiteSchema)
           }}
         />
+        <GoogleAnalytics />
       </body>
     </html>
   );
