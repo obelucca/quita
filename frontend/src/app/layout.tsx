@@ -8,8 +8,10 @@ const spaceGrotesk = Space_Grotesk({
   variable: "--font-sans",
 });
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+
 export const metadata: Metadata = {
-  metadataBase: new URL("https://quita.com.br"),
+  metadataBase: new URL(siteUrl),
 
   title: {
     default: "Quita — Resolva Suas Dívidas Sem Burocracia",
@@ -32,13 +34,13 @@ export const metadata: Metadata = {
     title: "Quita — Resolva Suas Dívidas Sem Burocracia",
     description:
       "Entenda seu Registrato, gere manifestações para bancos e recupere seu controle financeiro.",
-    url: "https://quita.com.br",
+    url: siteUrl,
     siteName: "Quita",
     locale: "pt_BR",
     type: "website",
     images: [
       {
-        url: "/og-image.png",
+        url: `${siteUrl}/og-image.png`,
         width: 1200,
         height: 630,
         alt: "Quita - Resolução de Dívidas",
@@ -51,7 +53,7 @@ export const metadata: Metadata = {
     title: "Quita — Resolva Suas Dívidas Sem Burocracia",
     description:
       "Entenda seu Registrato, gere manifestações para bancos e recupere seu controle financeiro.",
-    images: ["/og-image.png"],
+    images: [`${siteUrl}/og-image.png`],
   },
 
   icons: {
@@ -67,6 +69,32 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+
+  const orgSchema = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "Quita",
+    "url": siteUrl,
+    "logo": `${siteUrl}/icon.png`,
+    "sameAs": []
+  };
+
+  const websiteSchema = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Quita",
+    "url": siteUrl,
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": {
+        "@type": "EntryPoint",
+        "urlTemplate": `${siteUrl}/blog?search={search_term_string}`
+      },
+      "query-input": "required name=search_term_string"
+    }
+  };
+
   return (
     <html
       lang="pt-BR"
@@ -77,14 +105,13 @@ export default function RootLayout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "Organization",
-              "name": "Quita",
-              "url": "https://quita.com.br",
-              "logo": "https://quita.com.br/icon.png",
-              "sameAs": []
-            })
+            __html: JSON.stringify(orgSchema)
+          }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(websiteSchema)
           }}
         />
       </body>

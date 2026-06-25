@@ -4,13 +4,27 @@ import { SeoLayout } from "@/components/ui/seo-layout";
 import { SeoCta } from "@/components/ui/seo-cta";
 import { CheckCircle2, ChevronRight, BookOpen, Clock, ShieldCheck, Scale } from "lucide-react";
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+
 export const metadata: Metadata = {
   title: "Como Negociar Dívidas Bancárias e Sair do Prejuízo",
   description: "Aprenda como negociar dívidas bancárias passo a passo. Saiba quais são seus direitos e como usar o Consumidor.gov.br para obter descontos agressivos.",
   keywords: ["como negociar dividas bancarias", "negociar divida banco", "quitar emprestimo desconto", "desconto divida bancaria"],
   alternates: {
-    canonical: "https://quita.com.br/como-negociar-dividas",
+    canonical: `${siteUrl}/como-negociar-dividas`,
   },
+  openGraph: {
+    title: "Como Negociar Dívidas Bancárias e Sair do Prejuízo",
+    description: "Aprenda como negociar dívidas bancárias passo a passo. Saiba quais são seus direitos e como usar o Consumidor.gov.br para obter descontos agressivos.",
+    url: `${siteUrl}/como-negociar-dividas`,
+    images: [`${siteUrl}/og-image.png`],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Como Negociar Dívidas Bancárias e Sair do Prejuízo",
+    description: "Aprenda como negociar dívidas bancárias passo a passo. Saiba quais são seus direitos e como usar o Consumidor.gov.br para obter descontos agressivos.",
+    images: [`${siteUrl}/og-image.png`],
+  }
 };
 
 const faqs = [
@@ -37,7 +51,9 @@ const faqs = [
 ];
 
 export default function ComoNegociarDividasPage() {
-  const jsonLd = {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+
+  const faqSchema = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
     "mainEntity": faqs.map(faq => ({
@@ -50,11 +66,34 @@ export default function ComoNegociarDividasPage() {
     }))
   };
 
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Início",
+        "item": siteUrl
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "Como Negociar Dívidas",
+        "item": `${siteUrl}/como-negociar-dividas`
+      }
+    ]
+  };
+
   return (
     <SeoLayout>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
       />
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">

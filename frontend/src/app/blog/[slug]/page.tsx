@@ -23,6 +23,7 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const resolvedParams = await params;
   const post = blogPosts.find((p) => p.slug === resolvedParams.slug);
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
   
   if (!post) {
     return {
@@ -35,8 +36,20 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     description: post.summary,
     keywords: [post.category.toLowerCase(), "quita", "registrato", "finanças"],
     alternates: {
-      canonical: `https://quita.com.br/blog/${post.slug}`,
+      canonical: `${siteUrl}/blog/${post.slug}`,
     },
+    openGraph: {
+      title: `${post.title} | Blog Quita`,
+      description: post.summary,
+      url: `${siteUrl}/blog/${post.slug}`,
+      images: [`${siteUrl}/og-image.png`],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${post.title} | Blog Quita`,
+      description: post.summary,
+      images: [`${siteUrl}/og-image.png`],
+    }
   };
 }
 
@@ -48,6 +61,8 @@ export default async function BlogPostPage({ params }: PageProps) {
     notFound();
   }
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+
   // Schema Markup declarations
   const articleSchema = {
     "@context": "https://schema.org",
@@ -58,14 +73,14 @@ export default async function BlogPostPage({ params }: PageProps) {
     "author": {
       "@type": "Organization",
       "name": "Quita",
-      "url": "https://quita.com.br"
+      "url": siteUrl
     },
     "publisher": {
       "@type": "Organization",
       "name": "Quita",
       "logo": {
         "@type": "ImageObject",
-        "url": "https://quita.com.br/icon.png"
+        "url": `${siteUrl}/icon.png`
       }
     }
   };
@@ -83,6 +98,31 @@ export default async function BlogPostPage({ params }: PageProps) {
     }))
   };
 
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Início",
+        "item": siteUrl
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "Blog",
+        "item": `${siteUrl}/blog`
+      },
+      {
+        "@type": "ListItem",
+        "position": 3,
+        "name": post.title,
+        "item": `${siteUrl}/blog/${post.slug}`
+      }
+    ]
+  };
+
   return (
     <SeoLayout>
       {/* Injecting Structured Schema */}
@@ -93,6 +133,10 @@ export default async function BlogPostPage({ params }: PageProps) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
       />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">

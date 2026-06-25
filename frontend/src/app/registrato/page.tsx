@@ -4,13 +4,27 @@ import { SeoLayout } from "@/components/ui/seo-layout";
 import { SeoCta } from "@/components/ui/seo-cta";
 import { CheckCircle2, ChevronRight, BookOpen, Clock, ShieldCheck, Compass } from "lucide-react";
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+
 export const metadata: Metadata = {
   title: "Registrato Banco Central: O que é, Como Consultar e Emitir PDF",
   description: "Entenda o Registrato do Banco Central. Guia completo para acessar o sistema, extrair o relatório SCR e contestar juros abusivos de dívidas bancárias.",
   keywords: ["registrato banco central", "consultar registrato", "emitir registrato", "scr banco central", "relatorio banco central"],
   alternates: {
-    canonical: "https://quita.com.br/registrato",
+    canonical: `${siteUrl}/registrato`,
   },
+  openGraph: {
+    title: "Registrato Banco Central: O que é, Como Consultar e Emitir PDF",
+    description: "Entenda o Registrato do Banco Central. Guia completo para acessar o sistema, extrair o relatório SCR e contestar juros abusivos de dívidas bancárias.",
+    url: `${siteUrl}/registrato`,
+    images: [`${siteUrl}/og-image.png`],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Registrato Banco Central: O que é, Como Consultar e Emitir PDF",
+    description: "Entenda o Registrato do Banco Central. Guia completo para acessar o sistema, extrair o relatório SCR e contestar juros abusivos de dívidas bancárias.",
+    images: [`${siteUrl}/og-image.png`],
+  }
 };
 
 const faqs = [
@@ -32,7 +46,7 @@ const faqs = [
   },
   {
     question: "Como tirar o Registrato pelo celular?",
-    answer: "Você pode emitir acessando o site oficial pelo navegador do celular e fazendo login com o Gov.br. O portal do Banco Central é responsivo e gera relatórios em formato PDF prontos para download imediato."
+    answer: "Você pode emitir acessando o site oficial pelo navegador do celular e fazendo login with o Gov.br. O portal do Banco Central é responsivo e gera relatórios em formato PDF prontos para download imediato."
   },
   {
     question: "O Registrato do Banco Central limpa o nome?",
@@ -49,7 +63,9 @@ const faqs = [
 ];
 
 export default function RegistratoPage() {
-  const jsonLd = {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+
+  const faqSchema = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
     "mainEntity": faqs.map(faq => ({
@@ -62,11 +78,34 @@ export default function RegistratoPage() {
     }))
   };
 
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Início",
+        "item": siteUrl
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "Registrato",
+        "item": `${siteUrl}/registrato`
+      }
+    ]
+  };
+
   return (
     <SeoLayout>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
       />
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">

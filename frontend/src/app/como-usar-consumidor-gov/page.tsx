@@ -4,13 +4,27 @@ import { SeoLayout } from "@/components/ui/seo-layout";
 import { SeoCta } from "@/components/ui/seo-cta";
 import { CheckCircle2, ChevronRight, BookOpen, Clock, ShieldCheck, MessageSquare } from "lucide-react";
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+
 export const metadata: Metadata = {
   title: "Como Reclamar no Consumidor Gov: Passo a Passo Prático",
   description: "Aprenda como reclamar no Consumidor.gov.br e resolver problemas de dívidas, cobranças de juros e serviços bancários de forma digital e rápida.",
   keywords: ["como reclamar no consumidor.gov.br", "reclamar consumidor gov", "como fazer reclamacao banco", "consumidor gov"],
   alternates: {
-    canonical: "https://quita.com.br/como-usar-consumidor-gov",
+    canonical: `${siteUrl}/como-usar-consumidor-gov`,
   },
+  openGraph: {
+    title: "Como Reclamar no Consumidor Gov: Passo a Passo Prático",
+    description: "Aprenda como reclamar no Consumidor.gov.br e resolver problemas de dívidas, cobranças de juros e serviços bancários de forma digital e rápida.",
+    url: `${siteUrl}/como-usar-consumidor-gov`,
+    images: [`${siteUrl}/og-image.png`],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Como Reclamar no Consumidor Gov: Passo a Passo Prático",
+    description: "Aprenda como reclamar no Consumidor.gov.br e resolver problemas de dívidas, cobranças de juros e serviços bancários de forma digital e rápida.",
+    images: [`${siteUrl}/og-image.png`],
+  }
 };
 
 const faqs = [
@@ -20,7 +34,7 @@ const faqs = [
   },
   {
     question: "O banco é obrigado a responder no Consumidor.gov.br?",
-    answer: "Sim. As empresas que aderem voluntariamente ao portal assumem o compromisso público e regulatório de responder a todas as contestações em até 15 dias corridos."
+    answer: "Sim. As empresas que aderem voluntariamente ao portal assumem o compromisso público e regulatório de responder a todas as contestações in até 15 dias corridos."
   },
   {
     question: "Posso reclamar no Consumidor.gov por cobrança indevida?",
@@ -37,7 +51,9 @@ const faqs = [
 ];
 
 export default function ComoUsarConsumidorGovPage() {
-  const jsonLd = {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+
+  const faqSchema = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
     "mainEntity": faqs.map(faq => ({
@@ -50,11 +66,34 @@ export default function ComoUsarConsumidorGovPage() {
     }))
   };
 
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Início",
+        "item": siteUrl
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "Como usar o Consumidor Gov",
+        "item": `${siteUrl}/como-usar-consumidor-gov`
+      }
+    ]
+  };
+
   return (
     <SeoLayout>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
       />
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">

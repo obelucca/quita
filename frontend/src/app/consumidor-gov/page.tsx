@@ -4,13 +4,27 @@ import { SeoLayout } from "@/components/ui/seo-layout";
 import { SeoCta } from "@/components/ui/seo-cta";
 import { CheckCircle2, ChevronRight, BookOpen, Clock, ShieldCheck, HelpCircle } from "lucide-react";
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+
 export const metadata: Metadata = {
   title: "Consumidor Gov: Reclame de Bancos e Negocie Dívidas Grátis",
   description: "Saiba como funciona o Consumidor.gov.br. Guia passo a passo para registrar reclamações contra bancos, contestar juros abusivos e buscar acordos rápidos.",
   keywords: ["consumidor gov", "reclamar banco consumidor gov", "consumidor gov br", "negociar divida consumidor gov", "portal consumidor"],
   alternates: {
-    canonical: "https://quita.com.br/consumidor-gov",
+    canonical: `${siteUrl}/consumidor-gov`,
   },
+  openGraph: {
+    title: "Consumidor Gov: Reclame de Bancos e Negocie Dívidas Grátis",
+    description: "Saiba como funciona o Consumidor.gov.br. Guia passo a passo para registrar reclamações contra bancos, contestar juros abusivos e buscar acordos rápidos.",
+    url: `${siteUrl}/consumidor-gov`,
+    images: [`${siteUrl}/og-image.png`],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Consumidor Gov: Reclame de Bancos e Negocie Dívidas Grátis",
+    description: "Saiba como funciona o Consumidor.gov.br. Guia passo a passo para registrar reclamações contra bancos, contestar juros abusivos e buscar acordos rápidos.",
+    images: [`${siteUrl}/og-image.png`],
+  }
 };
 
 const faqs = [
@@ -49,7 +63,9 @@ const faqs = [
 ];
 
 export default function ConsumidorGovPage() {
-  const jsonLd = {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+
+  const faqSchema = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
     "mainEntity": faqs.map(faq => ({
@@ -62,11 +78,34 @@ export default function ConsumidorGovPage() {
     }))
   };
 
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Início",
+        "item": siteUrl
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "Consumidor Gov",
+        "item": `${siteUrl}/consumidor-gov`
+      }
+    ]
+  };
+
   return (
     <SeoLayout>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
       />
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
