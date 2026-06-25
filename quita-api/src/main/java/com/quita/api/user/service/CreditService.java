@@ -17,6 +17,7 @@ import java.util.UUID;
 public class CreditService {
 
     private final UserRepository userRepository;
+    private final com.quita.api.complaint.repository.ComplaintRepository complaintRepository;
 
     @Transactional(readOnly = true)
     public UserCreditsResponse getUserCredits(UUID userId) {
@@ -43,9 +44,12 @@ public class CreditService {
     }
 
     @Transactional
-    public void consumeCredit(UUID userId) {
+    public void consumeCredit(UUID userId, UUID complaintId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        com.quita.api.complaint.model.Complaint complaint = complaintRepository.findByIdAndUserId(complaintId, userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Complaint not found"));
 
         if (!user.getFreeComplaintUsed()) {
             user.setFreeComplaintUsed(true);
@@ -56,6 +60,10 @@ public class CreditService {
         } else {
             throw new InsufficientCreditsException("Você já utilizou sua contestação gratuita. Adquira créditos para continuar.");
         }
+
+        complaint.setCreditConsumed(true);
+        complaint.setCreditConsumedAt(java.time.LocalDateTime.now());
+        complaintRepository.save(complaint);
     }
 
     @Transactional

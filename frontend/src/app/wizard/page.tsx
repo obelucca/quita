@@ -2,11 +2,13 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { documentService } from "@/services/document.service";
 import { debtService } from "@/services/debt.service";
 import { complaintService } from "@/services/complaint.service";
+import { creditsService } from "@/services/credits.service";
 import wizardStorage from "@/services/wizard.service";
 import { WizardState, DebtAdjustment } from "@/types";
 import {
@@ -33,6 +35,7 @@ import {
   User,
   AlertTriangle,
   Clock,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -207,6 +210,103 @@ export default function WizardPage() {
     save: false,
     return: false,
   });
+
+  // SDD-018A states
+  const [duplicateCheckModal, setDuplicateCheckModal] = useState<{
+    isOpen: boolean;
+    complaintId?: string;
+    institution?: string;
+  }>({ isOpen: false });
+  const [latestRecentComplaint, setLatestRecentComplaint] = useState<any>(null);
+  const [showRecoveryBanner, setShowRecoveryBanner] = useState(false);
+
+  // Fetch credits status
+  const { data: creditsData } = useQuery({
+    queryKey: ["userCredits"],
+    queryFn: () => creditsService.getCredits(),
+    enabled: isAuthenticated,
+  });
+
+
+
+  // Check for recent complaint when Wizard page mounts to offer auto-recovery
+  useEffect(() => {
+    if (user && isAuthenticated) {
+      complaintService.getLatest()
+        .then((latest) => {
+          if (latest && latest.id && latest.status === "GENERATED") {
+            const createdTime = new Date(latest.createdAt).getTime();
+            const now = Date.now();
+            const diffMinutes = (now - createdTime) / (1000 * 65);
+            // Show banner if it was generated in the last 30 minutes
+            if (diffMinutes < 30) {
+              setLatestRecentComplaint(latest);
+              setShowRecoveryBanner(true);
+            }
+          }
+        })
+        .catch((err) => {
+          console.error("Erro ao verificar manifestação recente:", err);
+        });
+    }
+  }, [user, isAuthenticated]);
+
+  const handleRecoverById = async (id: string) => {
+    try {
+      const complaint = await complaintService.getById(id);
+      updateState({
+        step: 10,
+        selectedInstitution: complaint.institution,
+        currentDebtValue: "",
+        generatedComplaint: {
+          id: complaint.id,
+          institution: complaint.institution,
+          complaint: complaint.complaint,
+          title: complaint.title,
+          disclaimer: complaint.disclaimer || "",
+          attachments: complaint.attachments || [],
+          editable: complaint.editable ?? true,
+          consumerGovInstructions: complaint.consumerGovInstructions || [],
+        }
+      });
+      setComplaintText(complaint.complaint);
+      setDuplicateCheckModal({ isOpen: false });
+      setShowRecoveryBanner(false);
+      addToast("Manifestação recuperada com sucesso!", "success");
+    } catch (err) {
+      addToast("Erro ao recuperar manifestação existente.", "error");
+    }
+  };
+
+  const handleGenerate = async () => {
+    if (!state.selectedInstitution) return;
+    
+    try {
+      const check = await complaintService.checkRecent(state.selectedInstitution);
+      if (check.exists && check.complaintId) {
+        setDuplicateCheckModal({
+          isOpen: true,
+          complaintId: check.complaintId,
+          institution: state.selectedInstitution,
+        });
+      } else {
+        executeGeneration();
+      }
+    } catch (err) {
+      executeGeneration();
+    }
+  };
+
+  const executeGeneration = () => {
+    if (!state.selectedInstitution) return;
+    generationStartTimeRef.current = Date.now();
+    updateState({ step: 9 });
+    const currentVal = parseBrazilianCurrency(state.currentDebtValue);
+    generateMutation.mutate({
+      institution: state.selectedInstitution,
+      value: currentVal,
+    });
+  };
 
   // Local states for Step 3 smart upload (SDD-012)
   const [uploadStage, setUploadStage] = useState<"idle" | "pre-analyzing" | "result-success" | "result-failed">("idle");
@@ -404,6 +504,7 @@ export default function WizardPage() {
     mutationFn: (data: { institution: string; value?: number }) =>
       complaintService.generate(data.institution, data.value),
     onSuccess: (data) => {
+      sessionStorage.setItem("lastComplaintId", data.id);
       transitionToStepWithDelay(10, { generatedComplaint: data }, () => {
         setComplaintText(data.complaint);
         // Increment claims count locally to showcase progress on dashboard
@@ -427,6 +528,7 @@ export default function WizardPage() {
     mutationFn: (data: { id: string; value?: number }) =>
       complaintService.regenerate(data.id, data.value),
     onSuccess: (data) => {
+      sessionStorage.setItem("lastComplaintId", data.id);
       transitionToStepWithDelay(10, { generatedComplaint: data }, () => {
         setComplaintText(data.complaint);
       });
@@ -440,6 +542,22 @@ export default function WizardPage() {
       });
     },
   });
+
+  // Block accidental exit during generation (beforeunload guard)
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      const isGenerating = state.step === 9 || generateMutation.isPending || regenerateMutation.isPending;
+      if (isGenerating) {
+        e.preventDefault();
+        e.returnValue = "A geração da sua manifestação está em andamento. Se você sair agora, poderá perder o progresso.";
+        return e.returnValue;
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [state.step, generateMutation.isPending, regenerateMutation.isPending]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -539,16 +657,7 @@ export default function WizardPage() {
     }));
   };
 
-  const handleGenerate = () => {
-    if (!state.selectedInstitution) return;
-    generationStartTimeRef.current = Date.now();
-    updateState({ step: 9 });
-    const currentVal = parseBrazilianCurrency(state.currentDebtValue);
-    generateMutation.mutate({
-      institution: state.selectedInstitution,
-      value: currentVal,
-    });
-  };
+
 
   const handleRegenerate = () => {
     if (!state.generatedComplaint?.id) return;
@@ -633,6 +742,12 @@ export default function WizardPage() {
           </Link>
 
           <div className="flex items-center gap-4">
+            {creditsData && (
+              <div className="flex items-center gap-1.5 bg-brand-emerald-50 border border-brand-emerald-100 text-brand-emerald-700 px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm">
+                <CreditCard className="w-4 h-4 text-brand-emerald-650" />
+                <span>Créditos: {creditsData.availableCredits}</span>
+              </div>
+            )}
             <div className="hidden sm:flex items-center gap-2 bg-brand-offwhite-50 border border-slate-200 px-3 py-1.5 rounded-xl">
               <User className="w-4 h-4 text-brand-emerald-600" />
               <span className="text-xs font-semibold text-slate-705">{user.name}</span>
@@ -662,6 +777,36 @@ export default function WizardPage() {
         <div className="mb-8">
           <RecoveryProgress currentStep={state.step} />
         </div>
+
+        {/* Auto-Recovery Banner */}
+        {showRecoveryBanner && latestRecentComplaint && (
+          <div className="mb-6 bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+              <div className="space-y-0.5">
+                <p className="text-xs font-bold text-amber-800">Manifestação recente identificada</p>
+                <p className="text-xs text-amber-700 leading-normal font-semibold">
+                  Encontramos uma manifestação para o <strong>{latestRecentComplaint.bankName}</strong> criada há pouco. Deseja continuar de onde parou?
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={() => setShowRecoveryBanner(false)}
+                className="px-3 py-1.5 text-xs font-bold text-slate-550 hover:text-slate-800 transition-colors"
+              >
+                Dispensar
+              </button>
+              <Button
+                variant="primary"
+                onClick={() => handleRecoverById(latestRecentComplaint.id)}
+                className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold h-9 px-4 rounded-xl shadow-sm transition-all"
+              >
+                Abrir Manifestação
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Step Content */}
         <Card className="shadow-lg min-h-[420px] flex flex-col justify-between bg-white border-slate-200">
@@ -2807,6 +2952,82 @@ export default function WizardPage() {
         cancelText="Cancelar"
         isDanger={true}
       />
+
+      {/* Modal de Confirmação de Duplicidade */}
+      <AnimatePresence>
+        {duplicateCheckModal.isOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setDuplicateCheckModal({ isOpen: false })}
+              className="absolute inset-0 bg-slate-950/40 backdrop-blur-xs"
+            />
+
+            {/* Modal Container */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="relative z-10 w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-xl p-6 mx-4 overflow-hidden"
+            >
+              <div className="flex items-start gap-3.5">
+                <div className="p-3 bg-amber-50 rounded-full text-amber-600 shrink-0 border border-amber-100">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base font-bold text-slate-900 font-sans tracking-tight">
+                    Manifestação Recente Encontrada
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-2 leading-relaxed font-sans font-medium">
+                    Você já gerou uma manifestação para o <strong>{duplicateCheckModal.institution}</strong> nos últimos 5 minutos. Deseja reabrir a manifestação existente ou gerar uma nova (o que consumirá 1 crédito adicional)?
+                  </p>
+                </div>
+                <button
+                  onClick={() => setDuplicateCheckModal({ isOpen: false })}
+                  className="text-slate-400 hover:text-slate-600 transition-colors p-0.5 shrink-0"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Actions */}
+              <div className="flex flex-wrap items-center justify-end gap-2 mt-6">
+                <Button
+                  variant="secondary"
+                  onClick={() => setDuplicateCheckModal({ isOpen: false })}
+                  className="text-xs font-semibold px-4 h-9 py-0"
+                >
+                  Cancelar
+                </Button>
+                {duplicateCheckModal.complaintId && (
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      handleRecoverById(duplicateCheckModal.complaintId!);
+                    }}
+                    className="text-xs font-bold px-4 h-9 py-0 border-brand-emerald-500 text-brand-emerald-700 hover:bg-brand-emerald-50"
+                  >
+                    Abrir Existente
+                  </Button>
+                )}
+                <Button
+                  variant="primary"
+                  onClick={() => {
+                    setDuplicateCheckModal({ isOpen: false });
+                    executeGeneration();
+                  }}
+                  className="text-xs font-semibold px-4 h-9 py-0 bg-brand-petroleo hover:bg-slate-800 text-white"
+                >
+                  Gerar Nova (1 crédito)
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       <CustomToastContainer toasts={toasts} onClose={removeToast} />
     </div>

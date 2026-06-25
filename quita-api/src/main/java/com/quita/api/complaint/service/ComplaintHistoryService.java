@@ -39,4 +39,14 @@ public class ComplaintHistoryService {
         return complaintRepository.findByIdAndUserId(id, userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Complaint not found"));
     }
+
+    @Transactional(readOnly = true)
+    public java.util.Optional<Complaint> getLatest(UUID userId) {
+        return complaintRepository.findFirstByUserIdOrderByCreatedAtDesc(userId);
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.Optional<Complaint> getRecent(UUID userId, String institution, java.time.LocalDateTime after) {
+        return complaintRepository.findFirstByUserIdAndInstitutionAndCreatedAtAfter(userId, institution, after);
+    }
 }

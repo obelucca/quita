@@ -227,12 +227,14 @@ public class ComplaintGenerationService {
                 .currentDebtValue(request.getCurrentDebtValue())
                 .generatedBy(generatedBy)
                 .version(newVersion)
+                .creditConsumed(false)
+                .creditConsumedAt(null)
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .build();
 
         complaintRepository.save(complaint);
-        creditService.consumeCredit(userId);
+        creditService.consumeCredit(userId, complaint.getId());
 
         return mapToResponse(complaint, message, issueExplanations);
     }

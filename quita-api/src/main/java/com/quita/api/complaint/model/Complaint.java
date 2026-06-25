@@ -47,6 +47,13 @@ public class Complaint {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    @Builder.Default
+    @Column(name = "credit_consumed", nullable = false)
+    private Boolean creditConsumed = false;
+
+    @Column(name = "credit_consumed_at")
+    private LocalDateTime creditConsumedAt;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", insertable = false, updatable = false)
     private User user;

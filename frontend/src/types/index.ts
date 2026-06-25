@@ -114,3 +114,17 @@ export interface WizardState {
   currentDebtValue: string;
   generatedComplaint: ComplaintResponse | null;
 }
+
+export interface LatestComplaintResponse {
+  id: string;
+  createdAt: string;
+  status: string;
+  bankName: string;
+  content: string;
+}
+
+export interface RecentComplaintCheckResponse {
+  exists: boolean;
+  complaintId: string | null;
+  createdAt: string | null;
+}

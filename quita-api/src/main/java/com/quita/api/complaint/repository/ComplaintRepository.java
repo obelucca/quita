@@ -15,6 +15,10 @@ public interface ComplaintRepository extends JpaRepository<Complaint, UUID> {
 
     List<Complaint> findAllByUserIdOrderByCreatedAtDesc(UUID userId);
 
+    Optional<Complaint> findFirstByUserIdOrderByCreatedAtDesc(UUID userId);
+
+    Optional<Complaint> findFirstByUserIdAndInstitutionAndCreatedAtAfter(UUID userId, String institution, java.time.LocalDateTime after);
+
     Optional<Complaint> findByIdAndUserId(UUID id, UUID userId);
 
     @Query("SELECT COALESCE(MAX(c.version), 0) FROM Complaint c WHERE c.userId = :userId AND c.institution = :institution")

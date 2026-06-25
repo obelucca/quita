@@ -308,6 +308,12 @@ export default function DashboardPage() {
           </Link>
 
           <div className="flex items-center gap-4">
+            {creditsData && (
+              <div className="flex items-center gap-1.5 bg-brand-emerald-50 border border-brand-emerald-100 text-brand-emerald-700 px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm">
+                <CreditCard className="w-4 h-4 text-brand-emerald-650" />
+                <span>Créditos disponíveis: {creditsData.availableCredits}</span>
+              </div>
+            )}
             <div className="flex items-center gap-2 bg-brand-offwhite-50 border border-slate-200 px-3 py-1.5 rounded-xl">
               <User className="w-4 h-4 text-brand-emerald-600" />
               <span className="text-xs font-semibold text-slate-705">{user.name}</span>
@@ -392,7 +398,7 @@ export default function DashboardPage() {
               </h3>
               <p className="text-xs text-slate-500 font-semibold">Acompanhe seu avanço rumo à resolução das dívidas.</p>
             </div>
-            <div className="flex-grow flex items-center justify-center overflow-hidden">
+            <div className="flex-grow flex items-center justify-center overflow-visible">
               <div className="w-full max-w-[320px] opacity-90">
                 <RecoveryMap state={complaintsCount > 0 ? 5 : 2} showYouAreHere={true} noCardStyle={true} />
               </div>
@@ -720,104 +726,6 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Adquirir Créditos Section */}
-        <div className="space-y-4">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-            <div>
-              <h2 className="text-lg font-bold text-brand-petroleo flex items-center gap-2">
-                <CreditCard className="w-5 h-5 text-brand-emerald-600" />
-                Adquirir Créditos
-              </h2>
-              <p className="text-xs text-slate-500 font-semibold">Selecione o melhor pacote para iniciar suas contestações regulatórias.</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[
-              {
-                id: "STARTER",
-                name: "Pacote Inicial",
-                credits: 3,
-                price: "R$ 19,90",
-                description: "Ideal para quem tem poucas dívidas para contestar.",
-                details: ["3 créditos para contestações", "Suporte padrão", "Geração via IA"],
-                badge: "Popular",
-                badgeClass: "bg-brand-emerald-50 text-brand-emerald-700 border-brand-emerald-100",
-              },
-              {
-                id: "INTERMEDIATE",
-                name: "Pacote Recomendado",
-                credits: 10,
-                price: "R$ 49,90",
-                description: "Excelente para limpar múltiplos apontamentos.",
-                details: ["10 créditos para contestações", "Suporte prioritário", "Geração via IA otimizada"],
-                badge: "Melhor Valor",
-                badgeClass: "bg-amber-50 text-amber-700 border-amber-100",
-              },
-              {
-                id: "PREMIUM",
-                name: "Pacote Premium",
-                credits: 25,
-                price: "R$ 99,90",
-                description: "Perfeito para consultores ou grandes volumes.",
-                details: ["25 créditos para contestações", "Suporte ultra-prioritário", "Análise avançada"],
-                badge: "Profissional",
-                badgeClass: "bg-blue-50 text-blue-700 border-blue-100",
-              },
-            ].map((pkg) => (
-              <Card key={pkg.id} className="bg-white border-slate-200 p-6 flex flex-col justify-between shadow-sm relative overflow-hidden group hover:border-brand-emerald-500/20 hover:shadow-md transition-all duration-300 rounded-2xl">
-                {pkg.badge && (
-                  <span className={`absolute top-3 right-3 text-[9px] font-bold px-2 py-0.5 rounded-full border ${pkg.badgeClass}`}>
-                    {pkg.badge}
-                  </span>
-                )}
-                
-                <div className="space-y-4">
-                  <div>
-                    <h4 className="text-sm font-bold text-brand-petroleo">{pkg.name}</h4>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">{pkg.credits} Créditos</p>
-                  </div>
-
-                  <div>
-                    <span className="text-2xl font-black text-brand-petroleo">{pkg.price}</span>
-                  </div>
-
-                  <p className="text-xs text-slate-500 leading-relaxed font-semibold">{pkg.description}</p>
-
-                  <ul className="space-y-1.5 pt-2 text-[11px] text-slate-500 font-semibold border-t border-slate-100">
-                    {pkg.details.map((detail, idx) => (
-                      <li key={idx} className="flex items-center gap-1.5">
-                        <CheckCircle className="w-3.5 h-3.5 text-brand-emerald-600 flex-shrink-0" />
-                        {detail}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="pt-6">
-                  <Button
-                    onClick={() => handleBuyCredits(pkg.id)}
-                    disabled={purchasePendingPackage !== null}
-                    className="w-full bg-brand-petroleo hover:bg-slate-800 text-white rounded-xl h-10 font-semibold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    {purchasePendingPackage === pkg.id ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        Redirecionando...
-                      </>
-                    ) : (
-                      <>
-                        Comprar Agora
-                        <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </div>
-
         {/* Complaints History List */}
         <div className="space-y-4">
           <h2 className="text-lg font-bold text-brand-petroleo flex items-center gap-2">
@@ -911,6 +819,104 @@ export default function DashboardPage() {
               ))}
             </div>
           )}
+        </div>
+
+        {/* Adquirir Créditos Section */}
+        <div className="space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+            <div>
+              <h2 className="text-lg font-bold text-brand-petroleo flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-brand-emerald-600" />
+                Adquirir Créditos
+              </h2>
+              <p className="text-xs text-slate-500 font-semibold">Selecione o melhor pacote para iniciar suas contestações regulatórias.</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              {
+                id: "STARTER",
+                name: "Pacote Inicial",
+                credits: 3,
+                price: "R$ 19,90",
+                description: "Ideal para quem tem poucas dívidas para contestar.",
+                details: ["3 créditos para contestações", "Suporte padrão", "Geração via IA"],
+                badge: "Popular",
+                badgeClass: "bg-brand-emerald-50 text-brand-emerald-700 border-brand-emerald-100",
+              },
+              {
+                id: "INTERMEDIATE",
+                name: "Pacote Recomendado",
+                credits: 10,
+                price: "R$ 49,90",
+                description: "Excelente para limpar múltiplos apontamentos.",
+                details: ["10 créditos para contestações", "Suporte prioritário", "Geração via IA otimizada"],
+                badge: "Melhor Valor",
+                badgeClass: "bg-amber-50 text-amber-700 border-amber-100",
+              },
+              {
+                id: "PREMIUM",
+                name: "Pacote Premium",
+                credits: 25,
+                price: "R$ 99,90",
+                description: "Perfeito para consultores ou grandes volumes.",
+                details: ["25 créditos para contestações", "Suporte ultra-prioritário", "Análise avançada"],
+                badge: "Profissional",
+                badgeClass: "bg-blue-50 text-blue-700 border-blue-100",
+              },
+            ].map((pkg) => (
+              <Card key={pkg.id} className="bg-white border-slate-200 p-6 flex flex-col justify-between shadow-sm relative overflow-hidden group hover:border-brand-emerald-500/20 hover:shadow-md transition-all duration-300 rounded-2xl">
+                {pkg.badge && (
+                  <span className={`absolute top-3 right-3 text-[9px] font-bold px-2 py-0.5 rounded-full border ${pkg.badgeClass}`}>
+                    {pkg.badge}
+                  </span>
+                )}
+                
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="text-sm font-bold text-brand-petroleo">{pkg.name}</h4>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">{pkg.credits} Créditos</p>
+                  </div>
+
+                  <div>
+                    <span className="text-2xl font-black text-brand-petroleo">{pkg.price}</span>
+                  </div>
+
+                  <p className="text-xs text-slate-500 leading-relaxed font-semibold">{pkg.description}</p>
+
+                  <ul className="space-y-1.5 pt-2 text-[11px] text-slate-550 font-semibold border-t border-slate-100">
+                    {pkg.details.map((detail, idx) => (
+                      <li key={idx} className="flex items-center gap-1.5">
+                        <CheckCircle className="w-3.5 h-3.5 text-brand-emerald-600 flex-shrink-0" />
+                        {detail}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="pt-6">
+                  <Button
+                    onClick={() => handleBuyCredits(pkg.id)}
+                    disabled={purchasePendingPackage !== null}
+                    className="w-full bg-brand-petroleo hover:bg-slate-800 text-white rounded-xl h-10 font-semibold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    {purchasePendingPackage === pkg.id ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        Redirecionando...
+                      </>
+                    ) : (
+                      <>
+                        Comprar Agora
+                        <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </Card>
+            ))}
+          </div>
         </div>
       </main>
 

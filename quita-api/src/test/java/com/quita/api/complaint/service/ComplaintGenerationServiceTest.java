@@ -398,7 +398,7 @@ class ComplaintGenerationServiceTest {
         inOrder.verify(creditService).validateCanGenerate(userId);
         inOrder.verify(llmClient, atLeastOnce()).generate(anyString());
         inOrder.verify(complaintRepository).save(any(Complaint.class));
-        inOrder.verify(creditService).consumeCredit(userId);
+        inOrder.verify(creditService).consumeCredit(eq(userId), any(UUID.class));
     }
 
     @Test
@@ -415,7 +415,7 @@ class ComplaintGenerationServiceTest {
         assertThrows(RuntimeException.class, () -> service.generate(userId, request, false));
 
         verify(creditService).validateCanGenerate(userId);
-        verify(creditService, never()).consumeCredit(userId);
+        verify(creditService, never()).consumeCredit(eq(userId), any(UUID.class));
     }
 
     @Test
@@ -433,6 +433,6 @@ class ComplaintGenerationServiceTest {
         assertThrows(RuntimeException.class, () -> service.generate(userId, request));
 
         verify(creditService).validateCanGenerate(userId);
-        verify(creditService, never()).consumeCredit(userId);
+        verify(creditService, never()).consumeCredit(eq(userId), any(UUID.class));
     }
 }

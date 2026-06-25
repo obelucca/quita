@@ -9,11 +9,29 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "Quita — Resolva Suas Dívidas Sem Burocracia",
-  description: "Entenda o relatório Registrato do Banco Central, identifique juros abusivos e gere sua petição ou reclamação para o Consumidor.gov.br em minutos.",
+  metadataBase: new URL("https://quita.com.br"),
+
+  title: {
+    default: "Quita — Resolva Suas Dívidas Sem Burocracia",
+    template: "%s | Quita"
+  },
+
+  description:
+    "Entenda seu Registrato, gere manifestações para bancos e recupere seu controle financeiro.",
+
+  keywords: [
+    "registrato",
+    "consumidor gov",
+    "renegociação de dívidas",
+    "SCR",
+    "Banco Central",
+    "nome negativado"
+  ],
+
   openGraph: {
     title: "Quita — Resolva Suas Dívidas Sem Burocracia",
-    description: "Entenda o relatório Registrato do Banco Central, identifique juros abusivos e gere sua petição ou reclamação para o Consumidor.gov.br em minutos.",
+    description:
+      "Entenda seu Registrato, gere manifestações para bancos e recupere seu controle financeiro.",
     url: "https://quita.com.br",
     siteName: "Quita",
     locale: "pt_BR",
@@ -27,14 +45,20 @@ export const metadata: Metadata = {
       },
     ],
   },
+
   twitter: {
     card: "summary_large_image",
     title: "Quita — Resolva Suas Dívidas Sem Burocracia",
-    description: "Entenda o relatório Registrato do Banco Central, identifique juros abusivos e gere sua petição ou reclamação para o Consumidor.gov.br em minutos.",
+    description:
+      "Entenda seu Registrato, gere manifestações para bancos e recupere seu controle financeiro.",
     images: ["/og-image.png"],
   },
+
   icons: {
-    icon: "/icon.svg",
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/icon.png", type: "image/png" },
+    ],
   },
 };
 
@@ -50,6 +74,19 @@ export default function RootLayout({
     >
       <body className="min-h-full bg-[#021d17] text-white font-sans flex flex-col">
         <Providers>{children}</Providers>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              "name": "Quita",
+              "url": "https://quita.com.br",
+              "logo": "https://quita.com.br/icon.png",
+              "sameAs": []
+            })
+          }}
+        />
       </body>
     </html>
   );

@@ -14,7 +14,7 @@ export default function PaymentSuccessPage() {
 
   useEffect(() => {
     // Invalida os créditos e histórico de pagamentos para atualizar a UI imediatamente
-    queryClient.invalidateQueries({ queryKey: ["credits"] });
+    queryClient.invalidateQueries({ queryKey: ["userCredits"] });
     queryClient.invalidateQueries({ queryKey: ["payments"] });
   }, [queryClient]);
 

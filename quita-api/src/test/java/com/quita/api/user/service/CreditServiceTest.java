@@ -25,6 +25,9 @@ class CreditServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private com.quita.api.complaint.repository.ComplaintRepository complaintRepository;
+
     @InjectMocks
     private CreditService creditService;
 
@@ -63,40 +66,73 @@ class CreditServiceTest {
 
     @Test
     void shouldConsumeFreeCreditWhenNotUsedYet() {
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        UUID complaintId = UUID.randomUUID();
+        com.quita.api.complaint.model.Complaint complaint = com.quita.api.complaint.model.Complaint.builder()
+                .id(complaintId)
+                .userId(userId)
+                .build();
 
-        creditService.consumeCredit(userId);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(complaintRepository.findByIdAndUserId(complaintId, userId)).thenReturn(Optional.of(complaint));
+
+        creditService.consumeCredit(userId, complaintId);
 
         ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
         verify(userRepository).save(captor.capture());
         User savedUser = captor.getValue();
         assertTrue(savedUser.getFreeComplaintUsed());
         assertEquals(0, savedUser.getComplaintCredits());
+
+        ArgumentCaptor<com.quita.api.complaint.model.Complaint> complaintCaptor = ArgumentCaptor.forClass(com.quita.api.complaint.model.Complaint.class);
+        verify(complaintRepository).save(complaintCaptor.capture());
+        com.quita.api.complaint.model.Complaint savedComplaint = complaintCaptor.getValue();
+        assertTrue(savedComplaint.getCreditConsumed());
+        assertNotNull(savedComplaint.getCreditConsumedAt());
     }
 
     @Test
     void shouldConsumePaidCreditWhenFreeIsUsedAndHasCredits() {
+        UUID complaintId = UUID.randomUUID();
+        com.quita.api.complaint.model.Complaint complaint = com.quita.api.complaint.model.Complaint.builder()
+                .id(complaintId)
+                .userId(userId)
+                .build();
+
         user.setFreeComplaintUsed(true);
         user.setComplaintCredits(2);
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(complaintRepository.findByIdAndUserId(complaintId, userId)).thenReturn(Optional.of(complaint));
 
-        creditService.consumeCredit(userId);
+        creditService.consumeCredit(userId, complaintId);
 
         ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
         verify(userRepository).save(captor.capture());
         User savedUser = captor.getValue();
         assertTrue(savedUser.getFreeComplaintUsed());
         assertEquals(1, savedUser.getComplaintCredits());
+
+        ArgumentCaptor<com.quita.api.complaint.model.Complaint> complaintCaptor = ArgumentCaptor.forClass(com.quita.api.complaint.model.Complaint.class);
+        verify(complaintRepository).save(complaintCaptor.capture());
+        com.quita.api.complaint.model.Complaint savedComplaint = complaintCaptor.getValue();
+        assertTrue(savedComplaint.getCreditConsumed());
+        assertNotNull(savedComplaint.getCreditConsumedAt());
     }
 
     @Test
     void shouldThrowExceptionWhenFreeUsedAndNoCreditsAvailable() {
+        UUID complaintId = UUID.randomUUID();
+        com.quita.api.complaint.model.Complaint complaint = com.quita.api.complaint.model.Complaint.builder()
+                .id(complaintId)
+                .userId(userId)
+                .build();
+
         user.setFreeComplaintUsed(true);
         user.setComplaintCredits(0);
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(complaintRepository.findByIdAndUserId(complaintId, userId)).thenReturn(Optional.of(complaint));
 
         InsufficientCreditsException ex = assertThrows(InsufficientCreditsException.class,
-                () -> creditService.consumeCredit(userId));
+                () -> creditService.consumeCredit(userId, complaintId));
 
         assertEquals("Você já utilizou sua contestação gratuita. Adquira créditos para continuar.", ex.getMessage());
         verify(userRepository, never()).save(any(User.class));

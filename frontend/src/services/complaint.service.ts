@@ -1,5 +1,5 @@
 import { api } from "@/lib/api";
-import { ComplaintResponse, ComplaintHistoryResponse } from "@/types";
+import { ComplaintResponse, ComplaintHistoryResponse, LatestComplaintResponse, RecentComplaintCheckResponse } from "@/types";
 
 export const complaintService = {
   generate: (institution: string, currentDebtValue?: number) => {
@@ -7,6 +7,10 @@ export const complaintService = {
       institution,
       currentDebtValue,
     });
+  },
+  getLatest: () => api.get<LatestComplaintResponse>("/complaints/latest"),
+  checkRecent: (institution: string) => {
+    return api.get<RecentComplaintCheckResponse>(`/complaints/check-recent?institution=${encodeURIComponent(institution)}`);
   },
   list: () => api.get<ComplaintHistoryResponse[]>("/complaints"),
   getById: (id: string) => api.get<ComplaintResponse>(`/complaints/${id}`),

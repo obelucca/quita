@@ -4,6 +4,8 @@ import com.quita.api.auth.security.UserPrincipal;
 import com.quita.api.complaint.dto.ComplaintGenerationRequest;
 import com.quita.api.complaint.dto.ComplaintHistoryResponse;
 import com.quita.api.complaint.dto.ComplaintResponse;
+import com.quita.api.complaint.dto.LatestComplaintResponse;
+import com.quita.api.complaint.dto.RecentComplaintCheckResponse;
 import com.quita.api.complaint.model.Complaint;
 import com.quita.api.complaint.service.ComplaintGenerationService;
 import com.quita.api.complaint.service.ComplaintHistoryService;
@@ -41,6 +43,40 @@ public class ComplaintController {
             @AuthenticationPrincipal UserPrincipal principal) {
         ComplaintResponse response = complaintGenerationService.generate(principal.getId(), request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @GetMapping("/latest")
+    public ResponseEntity<LatestComplaintResponse> getLatest(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        Complaint latest = complaintHistoryService.getLatest(principal.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Nenhuma manifestação encontrada."));
+        
+        LatestComplaintResponse response = LatestComplaintResponse.builder()
+                .id(latest.getId())
+                .createdAt(latest.getCreatedAt())
+                .status("GENERATED")
+                .bankName(latest.getInstitution())
+                .content(latest.getComplaintText())
+                .build();
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/check-recent")
+    public ResponseEntity<RecentComplaintCheckResponse> checkRecent(
+            @RequestParam String institution,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        java.time.LocalDateTime fiveMinutesAgo = java.time.LocalDateTime.now().minusMinutes(5);
+        java.util.Optional<Complaint> recent = complaintHistoryService.getRecent(
+                principal.getId(), institution, fiveMinutesAgo);
+        
+        RecentComplaintCheckResponse response = RecentComplaintCheckResponse.builder()
+                .exists(recent.isPresent())
+                .complaintId(recent.map(Complaint::getId).orElse(null))
+                .createdAt(recent.map(Complaint::getCreatedAt).orElse(null))
+                .build();
+        
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping

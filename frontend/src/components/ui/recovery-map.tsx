@@ -189,6 +189,13 @@ export const RecoveryMap: React.FC<RecoveryMapProps> = ({
             }}
           >
             <YouAreHereMarker
+              align={
+                youAreHerePoint.c <= 2
+                  ? "left"
+                  : youAreHerePoint.c >= 12
+                  ? "right"
+                  : "center"
+              }
               label={
                 numState === 5
                   ? "concluído!"
