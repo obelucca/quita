@@ -77,7 +77,9 @@ export default function RootLayout({
     "name": "Quita",
     "url": siteUrl,
     "logo": `${siteUrl}/icon.png`,
-    "sameAs": []
+    "sameAs": [
+      "https://www.instagram.com/quita.ia"
+    ]
   };
 
   const websiteSchema = {
