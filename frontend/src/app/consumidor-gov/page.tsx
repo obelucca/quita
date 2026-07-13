@@ -3,27 +3,26 @@ import { Metadata } from "next";
 import { SeoLayout } from "@/components/ui/seo-layout";
 import { SeoCta } from "@/components/ui/seo-cta";
 import { CheckCircle2, ChevronRight, BookOpen, Clock, ShieldCheck, HelpCircle } from "lucide-react";
-
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+import { SITE_URL } from "@/lib/site-url";
 
 export const metadata: Metadata = {
   title: "Consumidor Gov: Reclame de Bancos e Negocie Dívidas Grátis",
   description: "Saiba como funciona o Consumidor.gov.br. Guia passo a passo para registrar reclamações contra bancos, contestar juros abusivos e buscar acordos rápidos.",
   keywords: ["consumidor gov", "reclamar banco consumidor gov", "consumidor gov br", "negociar divida consumidor gov", "portal consumidor"],
   alternates: {
-    canonical: `${siteUrl}/consumidor-gov`,
+    canonical: `${SITE_URL}/consumidor-gov`,
   },
   openGraph: {
     title: "Consumidor Gov: Reclame de Bancos e Negocie Dívidas Grátis",
     description: "Saiba como funciona o Consumidor.gov.br. Guia passo a passo para registrar reclamações contra bancos, contestar juros abusivos e buscar acordos rápidos.",
-    url: `${siteUrl}/consumidor-gov`,
-    images: [`${siteUrl}/og-image.png`],
+    url: `${SITE_URL}/consumidor-gov`,
+    images: [`${SITE_URL}/og-image.png`],
   },
   twitter: {
     card: "summary_large_image",
     title: "Consumidor Gov: Reclame de Bancos e Negocie Dívidas Grátis",
     description: "Saiba como funciona o Consumidor.gov.br. Guia passo a passo para registrar reclamações contra bancos, contestar juros abusivos e buscar acordos rápidos.",
-    images: [`${siteUrl}/og-image.png`],
+    images: [`${SITE_URL}/og-image.png`],
   }
 };
 
@@ -63,8 +62,6 @@ const faqs = [
 ];
 
 export default function ConsumidorGovPage() {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-
   const faqSchema = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
@@ -86,13 +83,13 @@ export default function ConsumidorGovPage() {
         "@type": "ListItem",
         "position": 1,
         "name": "Início",
-        "item": siteUrl
+        "item": SITE_URL
       },
       {
         "@type": "ListItem",
         "position": 2,
         "name": "Consumidor Gov",
-        "item": `${siteUrl}/consumidor-gov`
+        "item": `${SITE_URL}/consumidor-gov`
       }
     ]
   };

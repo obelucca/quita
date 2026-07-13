@@ -3,27 +3,26 @@ import { Metadata } from "next";
 import { SeoLayout } from "@/components/ui/seo-layout";
 import { SeoCta } from "@/components/ui/seo-cta";
 import { CheckCircle2, ChevronRight, BookOpen, Clock, ShieldCheck, Scale } from "lucide-react";
-
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+import { SITE_URL } from "@/lib/site-url";
 
 export const metadata: Metadata = {
   title: "Como Negociar Dívidas Bancárias e Sair do Prejuízo",
   description: "Aprenda como negociar dívidas bancárias passo a passo. Saiba quais são seus direitos e como usar o Consumidor.gov.br para obter descontos agressivos.",
   keywords: ["como negociar dividas bancarias", "negociar divida banco", "quitar emprestimo desconto", "desconto divida bancaria"],
   alternates: {
-    canonical: `${siteUrl}/como-negociar-dividas`,
+    canonical: `${SITE_URL}/como-negociar-dividas`,
   },
   openGraph: {
     title: "Como Negociar Dívidas Bancárias e Sair do Prejuízo",
     description: "Aprenda como negociar dívidas bancárias passo a passo. Saiba quais são seus direitos e como usar o Consumidor.gov.br para obter descontos agressivos.",
-    url: `${siteUrl}/como-negociar-dividas`,
-    images: [`${siteUrl}/og-image.png`],
+    url: `${SITE_URL}/como-negociar-dividas`,
+    images: [`${SITE_URL}/og-image.png`],
   },
   twitter: {
     card: "summary_large_image",
     title: "Como Negociar Dívidas Bancárias e Sair do Prejuízo",
     description: "Aprenda como negociar dívidas bancárias passo a passo. Saiba quais são seus direitos e como usar o Consumidor.gov.br para obter descontos agressivos.",
-    images: [`${siteUrl}/og-image.png`],
+    images: [`${SITE_URL}/og-image.png`],
   }
 };
 
@@ -51,8 +50,6 @@ const faqs = [
 ];
 
 export default function ComoNegociarDividasPage() {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-
   const faqSchema = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
@@ -74,13 +71,13 @@ export default function ComoNegociarDividasPage() {
         "@type": "ListItem",
         "position": 1,
         "name": "Início",
-        "item": siteUrl
+        "item": SITE_URL
       },
       {
         "@type": "ListItem",
         "position": 2,
         "name": "Como Negociar Dívidas",
-        "item": `${siteUrl}/como-negociar-dividas`
+        "item": `${SITE_URL}/como-negociar-dividas`
       }
     ]
   };

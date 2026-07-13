@@ -3,16 +3,15 @@ import { Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import Providers from "./providers";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
+import { SITE_URL } from "@/lib/site-url";
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
   variable: "--font-sans",
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-
 export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
+  metadataBase: new URL(SITE_URL),
 
   title: {
     default: "Quita — Resolva Suas Dívidas Sem Burocracia",
@@ -35,13 +34,13 @@ export const metadata: Metadata = {
     title: "Quita — Resolva Suas Dívidas Sem Burocracia",
     description:
       "Entenda seu Registrato, gere manifestações para bancos e recupere seu controle financeiro.",
-    url: siteUrl,
+    url: SITE_URL,
     siteName: "Quita",
     locale: "pt_BR",
     type: "website",
     images: [
       {
-        url: `${siteUrl}/og-image.png`,
+        url: `${SITE_URL}/og-image.png`,
         width: 1200,
         height: 630,
         alt: "Quita - Resolução de Dívidas",
@@ -54,7 +53,7 @@ export const metadata: Metadata = {
     title: "Quita — Resolva Suas Dívidas Sem Burocracia",
     description:
       "Entenda seu Registrato, gere manifestações para bancos e recupere seu controle financeiro.",
-    images: [`${siteUrl}/og-image.png`],
+    images: [`${SITE_URL}/og-image.png`],
   },
 
   icons: {
@@ -70,14 +69,12 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-
   const orgSchema = {
     "@context": "https://schema.org",
     "@type": "Organization",
     "name": "Quita",
-    "url": siteUrl,
-    "logo": `${siteUrl}/icon.png`,
+    "url": SITE_URL,
+    "logo": `${SITE_URL}/icon.png`,
     "sameAs": [
       "https://www.instagram.com/quita.ia"
     ]
@@ -87,12 +84,12 @@ export default function RootLayout({
     "@context": "https://schema.org",
     "@type": "WebSite",
     "name": "Quita",
-    "url": siteUrl,
+    "url": SITE_URL,
     "potentialAction": {
       "@type": "SearchAction",
       "target": {
         "@type": "EntryPoint",
-        "urlTemplate": `${siteUrl}/blog?search={search_term_string}`
+        "urlTemplate": `${SITE_URL}/blog?search={search_term_string}`
       },
       "query-input": "required name=search_term_string"
     }

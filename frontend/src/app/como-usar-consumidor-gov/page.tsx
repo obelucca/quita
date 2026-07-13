@@ -3,27 +3,26 @@ import { Metadata } from "next";
 import { SeoLayout } from "@/components/ui/seo-layout";
 import { SeoCta } from "@/components/ui/seo-cta";
 import { CheckCircle2, ChevronRight, BookOpen, Clock, ShieldCheck, MessageSquare } from "lucide-react";
-
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+import { SITE_URL } from "@/lib/site-url";
 
 export const metadata: Metadata = {
   title: "Como Reclamar no Consumidor Gov: Passo a Passo Prático",
   description: "Aprenda como reclamar no Consumidor.gov.br e resolver problemas de dívidas, cobranças de juros e serviços bancários de forma digital e rápida.",
   keywords: ["como reclamar no consumidor.gov.br", "reclamar consumidor gov", "como fazer reclamacao banco", "consumidor gov"],
   alternates: {
-    canonical: `${siteUrl}/como-usar-consumidor-gov`,
+    canonical: `${SITE_URL}/como-usar-consumidor-gov`,
   },
   openGraph: {
     title: "Como Reclamar no Consumidor Gov: Passo a Passo Prático",
     description: "Aprenda como reclamar no Consumidor.gov.br e resolver problemas de dívidas, cobranças de juros e serviços bancários de forma digital e rápida.",
-    url: `${siteUrl}/como-usar-consumidor-gov`,
-    images: [`${siteUrl}/og-image.png`],
+    url: `${SITE_URL}/como-usar-consumidor-gov`,
+    images: [`${SITE_URL}/og-image.png`],
   },
   twitter: {
     card: "summary_large_image",
     title: "Como Reclamar no Consumidor Gov: Passo a Passo Prático",
     description: "Aprenda como reclamar no Consumidor.gov.br e resolver problemas de dívidas, cobranças de juros e serviços bancários de forma digital e rápida.",
-    images: [`${siteUrl}/og-image.png`],
+    images: [`${SITE_URL}/og-image.png`],
   }
 };
 
@@ -51,8 +50,6 @@ const faqs = [
 ];
 
 export default function ComoUsarConsumidorGovPage() {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-
   const faqSchema = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
@@ -74,13 +71,13 @@ export default function ComoUsarConsumidorGovPage() {
         "@type": "ListItem",
         "position": 1,
         "name": "Início",
-        "item": siteUrl
+        "item": SITE_URL
       },
       {
         "@type": "ListItem",
         "position": 2,
         "name": "Como usar o Consumidor Gov",
-        "item": `${siteUrl}/como-usar-consumidor-gov`
+        "item": `${SITE_URL}/como-usar-consumidor-gov`
       }
     ]
   };

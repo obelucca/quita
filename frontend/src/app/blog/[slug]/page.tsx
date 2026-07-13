@@ -7,6 +7,7 @@ import { SeoCta } from "@/components/ui/seo-cta";
 import { blogPosts } from "@/data/blog-posts";
 import { ChevronRight, Calendar, Clock, Sparkles, CheckCircle2, Bookmark, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SITE_URL } from "@/lib/site-url";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -23,7 +24,6 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const resolvedParams = await params;
   const post = blogPosts.find((p) => p.slug === resolvedParams.slug);
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
   
   if (!post) {
     return {
@@ -36,19 +36,19 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     description: post.summary,
     keywords: [post.category.toLowerCase(), "quita", "registrato", "finanças"],
     alternates: {
-      canonical: `${siteUrl}/blog/${post.slug}`,
+      canonical: `${SITE_URL}/blog/${post.slug}`,
     },
     openGraph: {
       title: `${post.title} | Blog Quita`,
       description: post.summary,
-      url: `${siteUrl}/blog/${post.slug}`,
-      images: [`${siteUrl}/og-image.png`],
+      url: `${SITE_URL}/blog/${post.slug}`,
+      images: [`${SITE_URL}/og-image.png`],
     },
     twitter: {
       card: "summary_large_image",
       title: `${post.title} | Blog Quita`,
       description: post.summary,
-      images: [`${siteUrl}/og-image.png`],
+      images: [`${SITE_URL}/og-image.png`],
     }
   };
 }
@@ -61,8 +61,6 @@ export default async function BlogPostPage({ params }: PageProps) {
     notFound();
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-
   // Schema Markup declarations
   const articleSchema = {
     "@context": "https://schema.org",
@@ -73,14 +71,14 @@ export default async function BlogPostPage({ params }: PageProps) {
     "author": {
       "@type": "Organization",
       "name": "Quita",
-      "url": siteUrl
+      "url": SITE_URL
     },
     "publisher": {
       "@type": "Organization",
       "name": "Quita",
       "logo": {
         "@type": "ImageObject",
-        "url": `${siteUrl}/icon.png`
+        "url": `${SITE_URL}/icon.png`
       }
     }
   };
@@ -106,19 +104,19 @@ export default async function BlogPostPage({ params }: PageProps) {
         "@type": "ListItem",
         "position": 1,
         "name": "Início",
-        "item": siteUrl
+        "item": SITE_URL
       },
       {
         "@type": "ListItem",
         "position": 2,
         "name": "Blog",
-        "item": `${siteUrl}/blog`
+        "item": `${SITE_URL}/blog`
       },
       {
         "@type": "ListItem",
         "position": 3,
         "name": post.title,
-        "item": `${siteUrl}/blog/${post.slug}`
+        "item": `${SITE_URL}/blog/${post.slug}`
       }
     ]
   };

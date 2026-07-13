@@ -3,27 +3,26 @@ import { Metadata } from "next";
 import { SeoLayout } from "@/components/ui/seo-layout";
 import { SeoCta } from "@/components/ui/seo-cta";
 import { CheckCircle2, ChevronRight, BookOpen, Clock, ShieldCheck, Download } from "lucide-react";
-
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+import { SITE_URL } from "@/lib/site-url";
 
 export const metadata: Metadata = {
   title: "Como Tirar o Registrato: Passo a Passo Completo e Grátis",
   description: "Aprenda como tirar o Registrato do Banco Central de forma rápida e segura. Guia prático com os links oficiais e passo a passo com conta Gov.br.",
   keywords: ["como tirar o registrato", "obter registrato banco central", "como emitir registrato", "registrato gov br"],
   alternates: {
-    canonical: `${siteUrl}/como-obter-registrato`,
+    canonical: `${SITE_URL}/como-obter-registrato`,
   },
   openGraph: {
     title: "Como Tirar o Registrato: Passo a Passo Completo e Grátis",
     description: "Aprenda como tirar o Registrato do Banco Central de forma rápida e segura. Guia prático com os links oficiais e passo a passo com conta Gov.br.",
-    url: `${siteUrl}/como-obter-registrato`,
-    images: [`${siteUrl}/og-image.png`],
+    url: `${SITE_URL}/como-obter-registrato`,
+    images: [`${SITE_URL}/og-image.png`],
   },
   twitter: {
     card: "summary_large_image",
     title: "Como Tirar o Registrato: Passo a Passo Completo e Grátis",
     description: "Aprenda como tirar o Registrato do Banco Central de forma rápida e segura. Guia prático com os links oficiais e passo a passo com conta Gov.br.",
-    images: [`${siteUrl}/og-image.png`],
+    images: [`${SITE_URL}/og-image.png`],
   }
 };
 
@@ -51,8 +50,6 @@ const faqs = [
 ];
 
 export default function ComoObterRegistratoPage() {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-
   const faqSchema = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
@@ -74,13 +71,13 @@ export default function ComoObterRegistratoPage() {
         "@type": "ListItem",
         "position": 1,
         "name": "Início",
-        "item": siteUrl
+        "item": SITE_URL
       },
       {
         "@type": "ListItem",
         "position": 2,
         "name": "Como Obter Registrato",
-        "item": `${siteUrl}/como-obter-registrato`
+        "item": `${SITE_URL}/como-obter-registrato`
       }
     ]
   };

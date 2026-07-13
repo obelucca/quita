@@ -3,27 +3,26 @@ import { Metadata } from "next";
 import { SeoLayout } from "@/components/ui/seo-layout";
 import { SeoCta } from "@/components/ui/seo-cta";
 import { CheckCircle2, ChevronRight, BookOpen, Clock, ShieldCheck, Compass } from "lucide-react";
-
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+import { SITE_URL } from "@/lib/site-url";
 
 export const metadata: Metadata = {
   title: "Registrato Banco Central: O que é, Como Consultar e Emitir PDF",
   description: "Entenda o Registrato do Banco Central. Guia completo para acessar o sistema, extrair o relatório SCR e contestar juros abusivos de dívidas bancárias.",
   keywords: ["registrato banco central", "consultar registrato", "emitir registrato", "scr banco central", "relatorio banco central"],
   alternates: {
-    canonical: `${siteUrl}/registrato`,
+    canonical: `${SITE_URL}/registrato`,
   },
   openGraph: {
     title: "Registrato Banco Central: O que é, Como Consultar e Emitir PDF",
     description: "Entenda o Registrato do Banco Central. Guia completo para acessar o sistema, extrair o relatório SCR e contestar juros abusivos de dívidas bancárias.",
-    url: `${siteUrl}/registrato`,
-    images: [`${siteUrl}/og-image.png`],
+    url: `${SITE_URL}/registrato`,
+    images: [`${SITE_URL}/og-image.png`],
   },
   twitter: {
     card: "summary_large_image",
     title: "Registrato Banco Central: O que é, Como Consultar e Emitir PDF",
     description: "Entenda o Registrato do Banco Central. Guia completo para acessar o sistema, extrair o relatório SCR e contestar juros abusivos de dívidas bancárias.",
-    images: [`${siteUrl}/og-image.png`],
+    images: [`${SITE_URL}/og-image.png`],
   }
 };
 
@@ -46,7 +45,7 @@ const faqs = [
   },
   {
     question: "Como tirar o Registrato pelo celular?",
-    answer: "Você pode emitir acessando o site oficial pelo navegador do celular e fazendo login with o Gov.br. O portal do Banco Central é responsivo e gera relatórios em formato PDF prontos para download imediato."
+    answer: "Você pode emitir acessando o site oficial pelo navegador do celular e fazendo login com o Gov.br. O portal do Banco Central é responsivo e gera relatórios em formato PDF prontos para download imediato."
   },
   {
     question: "O Registrato do Banco Central limpa o nome?",
@@ -63,8 +62,6 @@ const faqs = [
 ];
 
 export default function RegistratoPage() {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-
   const faqSchema = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
@@ -86,13 +83,13 @@ export default function RegistratoPage() {
         "@type": "ListItem",
         "position": 1,
         "name": "Início",
-        "item": siteUrl
+        "item": SITE_URL
       },
       {
         "@type": "ListItem",
         "position": 2,
         "name": "Registrato",
-        "item": `${siteUrl}/registrato`
+        "item": `${SITE_URL}/registrato`
       }
     ]
   };

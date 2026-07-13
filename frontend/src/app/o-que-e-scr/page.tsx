@@ -3,27 +3,26 @@ import { Metadata } from "next";
 import { SeoLayout } from "@/components/ui/seo-layout";
 import { SeoCta } from "@/components/ui/seo-cta";
 import { CheckCircle2, ChevronRight, BookOpen, Clock, ShieldCheck, BarChart3 } from "lucide-react";
-
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+import { SITE_URL } from "@/lib/site-url";
 
 export const metadata: Metadata = {
   title: "O que é SCR Banco Central? Tudo Sobre Prejuízo e Nome Limpo",
   description: "Entenda o que é o SCR (Sistema de Informações de Crédito) do Banco Central, a diferença entre dívida a vencer e prejuízo, e como limpar seu nome no sistema.",
   keywords: ["o que e scr", "scr banco central", "prejuizo scr", "como limpar scr", "registrato scr"],
   alternates: {
-    canonical: `${siteUrl}/o-que-e-scr`,
+    canonical: `${SITE_URL}/o-que-e-scr`,
   },
   openGraph: {
     title: "O que é SCR Banco Central? Tudo Sobre Prejuízo e Nome Limpo",
     description: "Entenda o que é o SCR (Sistema de Informações de Crédito) do Banco Central, a diferença entre dívida a vencer e prejuízo, e como limpar seu nome no sistema.",
-    url: `${siteUrl}/o-que-e-scr`,
-    images: [`${siteUrl}/og-image.png`],
+    url: `${SITE_URL}/o-que-e-scr`,
+    images: [`${SITE_URL}/og-image.png`],
   },
   twitter: {
     card: "summary_large_image",
     title: "O que é SCR Banco Central? Tudo Sobre Prejuízo e Nome Limpo",
     description: "Entenda o que é o SCR (Sistema de Informações de Crédito) do Banco Central, a diferença entre dívida a vencer e prejuízo, e como limpar seu nome no sistema.",
-    images: [`${siteUrl}/og-image.png`],
+    images: [`${SITE_URL}/og-image.png`],
   }
 };
 
@@ -63,8 +62,6 @@ const faqs = [
 ];
 
 export default function OQueEScrPage() {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-
   const faqSchema = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
@@ -86,13 +83,13 @@ export default function OQueEScrPage() {
         "@type": "ListItem",
         "position": 1,
         "name": "Início",
-        "item": siteUrl
+        "item": SITE_URL
       },
       {
         "@type": "ListItem",
         "position": 2,
         "name": "O que é SCR",
-        "item": `${siteUrl}/o-que-e-scr`
+        "item": `${SITE_URL}/o-que-e-scr`
       }
     ]
   };
