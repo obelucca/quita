@@ -5,7 +5,8 @@ import { notFound } from "next/navigation";
 import { SeoLayout } from "@/components/ui/seo-layout";
 import { SeoCta } from "@/components/ui/seo-cta";
 import { blogPosts } from "@/data/blog-posts";
-import { ChevronRight, Calendar, Clock, Sparkles, CheckCircle2, Bookmark, ArrowLeft } from "lucide-react";
+import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
+import { ChevronRight, Calendar, Clock, Sparkles, Bookmark, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SITE_URL } from "@/lib/site-url";
 
@@ -24,7 +25,7 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const resolvedParams = await params;
   const post = blogPosts.find((p) => p.slug === resolvedParams.slug);
-  
+
   if (!post) {
     return {
       title: "Artigo Não Encontrado",
@@ -34,7 +35,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title: `${post.title} | Blog Quita`,
     description: post.summary,
-    keywords: [post.category.toLowerCase(), "quita", "registrato", "finanças"],
+    keywords: [post.category.toLowerCase(), "quita", "registrato", "finanças", "scr", "consumidor.gov.br"],
     alternates: {
       canonical: `${SITE_URL}/blog/${post.slug}`,
     },
@@ -49,7 +50,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title: `${post.title} | Blog Quita`,
       description: post.summary,
       images: [`${SITE_URL}/og-image.png`],
-    }
+    },
   };
 }
 
@@ -65,60 +66,60 @@ export default async function BlogPostPage({ params }: PageProps) {
   const articleSchema = {
     "@context": "https://schema.org",
     "@type": "Article",
-    "headline": post.title,
-    "description": post.summary,
-    "datePublished": "2026-06-25T12:00:00Z",
-    "author": {
+    headline: post.title,
+    description: post.summary,
+    datePublished: "2026-06-25T12:00:00Z",
+    author: {
       "@type": "Organization",
-      "name": "Quita",
-      "url": SITE_URL
+      name: "Quita",
+      url: SITE_URL,
     },
-    "publisher": {
+    publisher: {
       "@type": "Organization",
-      "name": "Quita",
-      "logo": {
+      name: "Quita",
+      logo: {
         "@type": "ImageObject",
-        "url": `${SITE_URL}/icon.png`
-      }
-    }
+        url: `${SITE_URL}/icon.png`,
+      },
+    },
   };
 
   const faqSchema = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
-    "mainEntity": post.faqs.map((faq) => ({
+    mainEntity: post.faqs.map((faq) => ({
       "@type": "Question",
-      "name": faq.question,
-      "acceptedAnswer": {
+      name: faq.question,
+      acceptedAnswer: {
         "@type": "Answer",
-        "text": faq.answer
-      }
-    }))
+        text: faq.answer,
+      },
+    })),
   };
 
   const breadcrumbSchema = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
-    "itemListElement": [
+    itemListElement: [
       {
         "@type": "ListItem",
-        "position": 1,
-        "name": "Início",
-        "item": SITE_URL
+        position: 1,
+        name: "Início",
+        item: SITE_URL,
       },
       {
         "@type": "ListItem",
-        "position": 2,
-        "name": "Blog",
-        "item": `${SITE_URL}/blog`
+        position: 2,
+        name: "Blog",
+        item: `${SITE_URL}/blog`,
       },
       {
         "@type": "ListItem",
-        "position": 3,
-        "name": post.title,
-        "item": `${SITE_URL}/blog/${post.slug}`
-      }
-    ]
+        position: 3,
+        name: post.title,
+        item: `${SITE_URL}/blog/${post.slug}`,
+      },
+    ],
   };
 
   return (
@@ -141,13 +142,20 @@ export default async function BlogPostPage({ params }: PageProps) {
         {/* Back Link and Breadcrumb */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div className="flex items-center gap-2 text-xs text-slate-500 font-semibold">
-            <Link href="/" className="hover:text-emerald-600">Início</Link>
+            <Link href="/" className="hover:text-emerald-600 transition-colors">
+              Início
+            </Link>
             <ChevronRight className="w-3 h-3" />
-            <Link href="/blog" className="hover:text-emerald-600">Blog</Link>
+            <Link href="/blog" className="hover:text-emerald-600 transition-colors">
+              Blog
+            </Link>
             <ChevronRight className="w-3 h-3" />
             <span className="text-emerald-600 truncate max-w-[200px] sm:max-w-xs">{post.title}</span>
           </div>
-          <Link href="/blog" className="inline-flex items-center gap-1 text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors">
+          <Link
+            href="/blog"
+            className="inline-flex items-center gap-1 text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors"
+          >
             <ArrowLeft className="w-4 h-4" />
             Voltar para o blog
           </Link>
@@ -164,7 +172,7 @@ export default async function BlogPostPage({ params }: PageProps) {
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">
                 {post.title}
               </h1>
-              
+
               <div className="flex items-center gap-4 text-xs text-slate-450 font-medium pt-2">
                 <div className="flex items-center gap-1.5">
                   <Calendar className="w-4 h-4 text-slate-400" />
@@ -181,73 +189,22 @@ export default async function BlogPostPage({ params }: PageProps) {
             <div className="p-6 bg-slate-50 border border-slate-200/60 rounded-2xl flex gap-3">
               <Bookmark className="w-6 h-6 text-emerald-600 flex-shrink-0" />
               <div className="space-y-1">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Resumo Rápido</span>
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  Resumo Rápido
+                </span>
                 <p className="text-slate-700 text-xs sm:text-sm font-medium leading-relaxed">
                   {post.takeaway}
                 </p>
               </div>
             </div>
 
-            {/* Content paragraph rendering */}
-            <div className="space-y-4 text-slate-650 text-sm sm:text-base leading-relaxed">
-              {post.content.map((p, idx) => (
-                <p key={idx}>{p}</p>
-              ))}
-            </div>
-
-            {/* Step-by-Step rendering */}
-            <div className="space-y-4">
-              <h2 className="text-lg sm:text-xl font-bold text-slate-900">Passo a Passo de Ação</h2>
-              <div className="space-y-3">
-                {post.steps.map((step, idx) => (
-                  <div key={idx} className="flex gap-4 p-4 rounded-xl bg-slate-50 border border-slate-150">
-                    <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 font-bold flex items-center justify-center text-sm">
-                      {idx + 1}
-                    </div>
-                    <p className="text-slate-655 text-xs sm:text-sm font-medium self-center">{step}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Checklist rendering */}
-            <div className="space-y-4">
-              <h2 className="text-lg sm:text-xl font-bold text-slate-900">Checklist Rápido</h2>
-              <ul className="space-y-3">
-                {post.checklist.map((item, idx) => (
-                  <li key={idx} className="flex items-start gap-2.5 text-slate-650 text-xs sm:text-sm">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* FAQ rendering */}
-            <div className="space-y-4">
-              <h2 className="text-lg sm:text-xl font-bold text-slate-900">Perguntas Frequentes</h2>
-              <div className="space-y-4">
-                {post.faqs.map((faq, idx) => (
-                  <div key={idx} className="bg-slate-50 p-5 rounded-2xl border border-slate-200/60">
-                    <h3 className="text-xs sm:text-sm font-bold text-slate-900 mb-2">{faq.question}</h3>
-                    <p className="text-slate-650 text-xs leading-relaxed">{faq.answer}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Conclusion */}
-            <div className="pt-4 border-t border-slate-100">
-              <h2 className="text-lg font-bold text-slate-900 mb-2">Conclusão</h2>
-              <p className="text-slate-650 text-xs sm:text-sm leading-relaxed">
-                Manter-se informado é a melhor defesa do consumidor contra abusos e burocracia bancária. Se após seguir este guia você precisar formalizar uma manifestação, conte com o Quita para automatizar e embasar tecnicamente sua contestação.
-              </p>
-            </div>
+            {/* Render full Markdown Content */}
+            <MarkdownRenderer content={post.markdownContent} />
           </article>
 
           {/* Sidebar Area */}
           <aside className="lg:col-span-4 space-y-6">
-            <div className="bg-gradient-to-br from-slate-900 to-emerald-950 text-white rounded-3xl p-6 sm:p-8 space-y-6 shadow-lg relative overflow-hidden">
+            <div className="bg-gradient-to-br from-slate-900 to-emerald-950 text-white rounded-3xl p-6 sm:p-8 space-y-6 shadow-lg relative overflow-hidden sticky top-6">
               <div className="absolute -right-16 -top-16 w-36 h-36 rounded-full bg-emerald-500/10 blur-xl pointer-events-none" />
               <div className="space-y-3">
                 <span className="inline-flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full text-emerald-400 text-[10px] font-bold uppercase tracking-wider">
@@ -261,7 +218,10 @@ export default async function BlogPostPage({ params }: PageProps) {
               </div>
 
               <Link href="/wizard" className="block">
-                <Button variant="primary" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-10 font-bold rounded-xl shadow-md flex items-center justify-center gap-2">
+                <Button
+                  variant="primary"
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-10 font-bold rounded-xl shadow-md flex items-center justify-center gap-2"
+                >
                   Começar agora
                   <ChevronRight className="w-4 h-4" />
                 </Button>
